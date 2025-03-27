@@ -17,6 +17,8 @@ import {
   ListMusic,
   Share,
   Heart,
+  ChevronUp,
+  ChevronDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { 
@@ -49,6 +51,16 @@ const AudioPlayer = () => {
   const [showWaveform, setShowWaveform] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [liked, setLiked] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    // Check if we have a saved preference in localStorage
+    const savedState = localStorage.getItem("audioPlayerCollapsed");
+    return savedState === "true";
+  });
+
+  useEffect(() => {
+    // Save the collapsed state to localStorage whenever it changes
+    localStorage.setItem("audioPlayerCollapsed", String(collapsed));
+  }, [collapsed]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -107,10 +119,28 @@ const AudioPlayer = () => {
     }
   };
 
+  const toggleCollapse = () => {
+    setCollapsed(!collapsed);
+  };
+
   if (!currentTrack) return null;
 
   return (
-    <div className="audio-player-container">
+    <div className={cn("audio-player-container", collapsed && "collapsed")}>
+      <div className="audio-player-toggle" onClick={toggleCollapse}>
+        {collapsed ? (
+          <>
+            <span className="mr-1 hidden sm:inline">Expand Player</span>
+            <ChevronUp className="h-4 w-4" />
+          </>
+        ) : (
+          <>
+            <span className="mr-1 hidden sm:inline">Collapse Player</span>
+            <ChevronDown className="h-4 w-4" />
+          </>
+        )}
+      </div>
+      
       <div className="glass-panel p-4 border-t shadow-md animate-fade-in">
         <audio
           ref={audioRef}
