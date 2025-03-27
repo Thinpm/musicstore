@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -21,30 +22,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { 
   User, 
-  Settings, 
-  Bell, 
-  Shield, 
   HardDrive, 
   Upload, 
   Edit, 
   Save,
-  Check
 } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-
-interface UserNotifications {
-  email: boolean;
-  push: boolean;
-  newComments: boolean;
-  newShares: boolean;
-}
-
-interface UserPrivacy {
-  profilePublic: boolean;
-  showActivityHistory: boolean;
-  allowSharing: boolean;
-}
 
 interface UserProfile {
   name: string;
@@ -52,8 +35,6 @@ interface UserProfile {
   username: string;
   bio: string;
   storageUsed: number;
-  notifications: UserNotifications;
-  privacy: UserPrivacy;
 }
 
 const Profile = () => {
@@ -64,17 +45,6 @@ const Profile = () => {
     username: "johndoe",
     bio: "Music enthusiast and content creator",
     storageUsed: 28, // percentage
-    notifications: {
-      email: true,
-      push: false,
-      newComments: true,
-      newShares: false,
-    },
-    privacy: {
-      profilePublic: true,
-      showActivityHistory: true,
-      allowSharing: true,
-    },
   });
   const { toast } = useToast();
 
@@ -90,26 +60,6 @@ const Profile = () => {
     setUser({ ...user, [field]: value });
   };
 
-  const handleToggle = (section: "notifications" | "privacy", field: string, value: boolean) => {
-    if (section === "notifications") {
-      setUser({
-        ...user,
-        notifications: {
-          ...user.notifications,
-          [field]: value,
-        },
-      });
-    } else if (section === "privacy") {
-      setUser({
-        ...user,
-        privacy: {
-          ...user.privacy,
-          [field]: value,
-        },
-      });
-    }
-  };
-
   return (
     <div className="flex flex-col space-y-6 animate-fade-in">
       <div className="flex flex-col space-y-1">
@@ -123,12 +73,6 @@ const Profile = () => {
         <TabsList className="w-full sm:w-auto">
           <TabsTrigger value="profile" className="flex items-center">
             <User className="h-4 w-4 mr-2" /> Profile
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center">
-            <Bell className="h-4 w-4 mr-2" /> Notifications
-          </TabsTrigger>
-          <TabsTrigger value="privacy" className="flex items-center">
-            <Shield className="h-4 w-4 mr-2" /> Privacy
           </TabsTrigger>
           <TabsTrigger value="storage" className="flex items-center">
             <HardDrive className="h-4 w-4 mr-2" /> Storage
@@ -245,151 +189,6 @@ const Profile = () => {
                   </Button>
                 </div>
               )}
-            </CardFooter>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="notifications" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Preferences</CardTitle>
-              <CardDescription>
-                Choose how you want to be notified
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Email Notifications</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Receive notifications by email
-                    </p>
-                  </div>
-                  <Switch 
-                    checked={user.notifications.email}
-                    onCheckedChange={(checked) => 
-                      handleToggle("notifications", "email", checked)
-                    }
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Push Notifications</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Receive push notifications on this device
-                    </p>
-                  </div>
-                  <Switch 
-                    checked={user.notifications.push}
-                    onCheckedChange={(checked) => 
-                      handleToggle("notifications", "push", checked)
-                    }
-                  />
-                </div>
-              </div>
-              
-              <Separator />
-              
-              <div className="space-y-4">
-                <h4 className="font-medium">Activity Notifications</h4>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h5 className="text-sm font-medium">New Comments</h5>
-                    <p className="text-xs text-muted-foreground">
-                      When someone comments on your uploads
-                    </p>
-                  </div>
-                  <Switch 
-                    checked={user.notifications.newComments}
-                    onCheckedChange={(checked) => 
-                      handleToggle("notifications", "newComments", checked)
-                    }
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h5 className="text-sm font-medium">New Shares</h5>
-                    <p className="text-xs text-muted-foreground">
-                      When someone shares your content
-                    </p>
-                  </div>
-                  <Switch 
-                    checked={user.notifications.newShares}
-                    onCheckedChange={(checked) => 
-                      handleToggle("notifications", "newShares", checked)
-                    }
-                  />
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button>Save Preferences</Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="privacy" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Privacy Settings</CardTitle>
-              <CardDescription>
-                Manage how your information is displayed and shared
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Public Profile</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Allow others to view your profile
-                    </p>
-                  </div>
-                  <Switch 
-                    checked={user.privacy.profilePublic}
-                    onCheckedChange={(checked) => 
-                      handleToggle("privacy", "profilePublic", checked)
-                    }
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Activity History</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Show your listening history to others
-                    </p>
-                  </div>
-                  <Switch 
-                    checked={user.privacy.showActivityHistory}
-                    onCheckedChange={(checked) => 
-                      handleToggle("privacy", "showActivityHistory", checked)
-                    }
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Content Sharing</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Allow others to share your uploaded content
-                    </p>
-                  </div>
-                  <Switch 
-                    checked={user.privacy.allowSharing}
-                    onCheckedChange={(checked) => 
-                      handleToggle("privacy", "allowSharing", checked)
-                    }
-                  />
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button>Save Privacy Settings</Button>
             </CardFooter>
           </Card>
         </TabsContent>

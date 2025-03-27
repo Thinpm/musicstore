@@ -1,12 +1,10 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useSidebar } from "./sidebar-provider";
 import { Button } from "@/components/ui/button";
 import { 
   Menu, 
   Bell, 
-  Search,
   Plus,
   ChevronDown
 } from "lucide-react";
@@ -20,13 +18,35 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTheme } from "@/components/theme-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
+import AlphabetBar from "./alphabet-bar";
+import { useToast } from "@/hooks/use-toast";
 
 const Navbar = () => {
   const { toggleSidebar } = useSidebar();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
-  const [searchActive, setSearchActive] = useState(false);
+  const location = useLocation();
+  const { toast } = useToast();
+
+  const handleLetterClick = (letter: string) => {
+    // Handle different behaviors based on current route
+    if (location.pathname === "/" || location.pathname === "/dashboard") {
+      // Dashboard behavior - filter songs by first letter
+      toast({
+        title: `Filter songs starting with "${letter}"`,
+        description: "Displaying songs starting with this letter",
+      });
+      // In a real implementation, you would call a function to filter the songs
+      // Example: fetchSongsByFirstLetter(letter)
+    } else if (location.pathname === "/playlists") {
+      // Playlists behavior - filter playlists by first letter
+      toast({
+        title: `Filter playlists starting with "${letter}"`,
+        description: "Displaying playlists starting with this letter",
+      });
+      // Example: fetchPlaylistsByLetter(letter)
+    }
+  };
 
   return (
     <div className="glass-panel border-b px-4 py-2 flex items-center justify-between h-16 z-10">
@@ -39,18 +59,8 @@ const Navbar = () => {
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <div 
-          className={`flex items-center bg-muted/50 rounded-full px-3 py-1.5 hover-effect hover:bg-muted/80 transition-all duration-300 ${
-            searchActive ? "w-64" : "w-36 md:w-52"
-          }`} 
-          onClick={() => setSearchActive(true)}
-          onBlur={() => setSearchActive(false)}
-        >
-          <Search className="h-4 w-4 text-muted-foreground mr-2" />
-          <Input 
-            placeholder="Search..." 
-            className="bg-transparent border-none h-8 focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground"
-          />
+        <div className="overflow-x-auto max-w-full flex pb-2">
+          <AlphabetBar onLetterClick={handleLetterClick} />
         </div>
       </div>
       
