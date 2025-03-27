@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -34,9 +33,32 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 
+interface UserNotifications {
+  email: boolean;
+  push: boolean;
+  newComments: boolean;
+  newShares: boolean;
+}
+
+interface UserPrivacy {
+  profilePublic: boolean;
+  showActivityHistory: boolean;
+  allowSharing: boolean;
+}
+
+interface UserProfile {
+  name: string;
+  email: string;
+  username: string;
+  bio: string;
+  storageUsed: number;
+  notifications: UserNotifications;
+  privacy: UserPrivacy;
+}
+
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
-  const [user, setUser] = useState({
+  const [user, setUser] = useState<UserProfile>({
     name: "John Doe",
     email: "john.doe@example.com",
     username: "johndoe",
@@ -68,14 +90,24 @@ const Profile = () => {
     setUser({ ...user, [field]: value });
   };
 
-  const handleToggle = (section: string, field: string, value: boolean) => {
-    setUser({
-      ...user,
-      [section]: {
-        ...user[section as keyof typeof user],
-        [field]: value,
-      },
-    });
+  const handleToggle = (section: "notifications" | "privacy", field: string, value: boolean) => {
+    if (section === "notifications") {
+      setUser({
+        ...user,
+        notifications: {
+          ...user.notifications,
+          [field]: value,
+        },
+      });
+    } else if (section === "privacy") {
+      setUser({
+        ...user,
+        privacy: {
+          ...user.privacy,
+          [field]: value,
+        },
+      });
+    }
   };
 
   return (
