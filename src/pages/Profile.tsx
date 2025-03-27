@@ -26,39 +26,67 @@ import {
   Upload, 
   Edit, 
   Save,
+  Loader2
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-
-interface UserProfile {
-  name: string;
-  email: string;
-  username: string;
-  bio: string;
-  storageUsed: number;
-}
+import { useCurrentUser, useStorageInfo, useUpdateProfile } from "@/hooks/useUser";
+import { formatBytes } from "@/lib/utils";
 
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
-  const [user, setUser] = useState<UserProfile>({
-    name: "John Doe",
-    email: "john.doe@example.com",
-    username: "johndoe",
-    bio: "Music enthusiast and content creator",
-    storageUsed: 28, // percentage
+  const { data: user, isLoading: isUserLoading } = useCurrentUser();
+  const { data: storage, isLoading: isStorageLoading } = useStorageInfo();
+  
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    username: "",
+    bio: "",
   });
-  const { toast } = useToast();
+  
+  // Update profile mutation
+  const { mutate: updateProfile, isPending: isUpdating } = useUpdateProfile();
+
+  // When user data is loaded, update the form data
+  React.useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name,
+        email: user.email,
+        username: user.username,
+        bio: user.bio,
+      });
+    }
+  }, [user]);
 
   const handleSaveProfile = () => {
-    setIsEditing(false);
-    toast({
-      title: "Profile updated",
-      description: "Your profile has been updated successfully",
+    updateProfile(formData, {
+      onSuccess: () => {
+        setIsEditing(false);
+      },
     });
   };
 
   const handleChange = (field: string, value: string) => {
-    setUser({ ...user, [field]: value });
+    setFormData({ ...formData, [field]: value });
   };
+
+  if (isUserLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <h2 className="text-xl font-medium mb-2">User profile not found</h2>
+        <p className="text-muted-foreground mb-6">Please log in to view your profile</p>
+        <Button>Log In</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col space-y-6 animate-fade-in">
@@ -92,8 +120,13 @@ const Profile = () => {
                 variant={isEditing ? "default" : "outline"} 
                 size="sm"
                 onClick={() => isEditing ? handleSaveProfile() : setIsEditing(true)}
+                disabled={isUpdating}
               >
-                {isEditing ? (
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
+                  </>
+                ) : isEditing ? (
                   <>
                     <Save className="h-4 w-4 mr-2" /> Save
                   </>
@@ -108,8 +141,8 @@ const Profile = () => {
               <div className="flex flex-col sm:flex-row items-center gap-6">
                 <div className="relative">
                   <Avatar className="h-24 w-24">
-                    <AvatarImage src="/placeholder.svg" alt="Profile Picture" />
-                    <AvatarFallback>JD</AvatarFallback>
+                    <AvatarImage src={user.avatarUrl || "/placeholder.svg"} alt="Profile Picture" />
+                    <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   {isEditing && (
                     <Button 
@@ -140,7 +173,7 @@ const Profile = () => {
                   <Label htmlFor="name">Full Name</Label>
                   <Input 
                     id="name" 
-                    value={user.name}
+                    value={formData.name}
                     onChange={(e) => handleChange("name", e.target.value)}
                     disabled={!isEditing}
                   />
@@ -149,7 +182,7 @@ const Profile = () => {
                   <Label htmlFor="username">Username</Label>
                   <Input 
                     id="username" 
-                    value={user.username}
+                    value={formData.username}
                     onChange={(e) => handleChange("username", e.target.value)}
                     disabled={!isEditing}
                   />
@@ -159,7 +192,7 @@ const Profile = () => {
                   <Input 
                     id="email" 
                     type="email" 
-                    value={user.email}
+                    value={formData.email}
                     onChange={(e) => handleChange("email", e.target.value)}
                     disabled={!isEditing}
                   />
@@ -168,7 +201,7 @@ const Profile = () => {
                   <Label htmlFor="bio">Bio</Label>
                   <Input 
                     id="bio" 
-                    value={user.bio}
+                    value={formData.bio}
                     onChange={(e) => handleChange("bio", e.target.value)}
                     disabled={!isEditing}
                   />
@@ -177,15 +210,21 @@ const Profile = () => {
             </CardContent>
             <CardFooter className="justify-between flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0">
               <div className="text-sm text-muted-foreground">
-                Last updated: May 25, 2023
+                Last updated: {new Date(user.updatedAt).toLocaleDateString()}
               </div>
               {isEditing && (
                 <div className="flex space-x-2">
-                  <Button variant="outline" onClick={() => setIsEditing(false)}>
+                  <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isUpdating}>
                     Cancel
                   </Button>
-                  <Button onClick={handleSaveProfile}>
-                    Save Changes
+                  <Button onClick={handleSaveProfile} disabled={isUpdating}>
+                    {isUpdating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
+                      </>
+                    ) : (
+                      "Save Changes"
+                    )}
                   </Button>
                 </div>
               )}
@@ -202,43 +241,57 @@ const Profile = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm font-medium">Storage Used</span>
-                  <span className="text-sm">{user.storageUsed}% of 5GB</span>
+              {isStorageLoading ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-accent rounded-full" 
-                    style={{ width: `${user.storageUsed}%` }}
-                  ></div>
+              ) : storage ? (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium">Storage Used</span>
+                      <span className="text-sm">
+                        {Math.round((storage.usedSize / storage.totalSize) * 100)}% of {formatBytes(storage.totalSize)}
+                      </span>
+                    </div>
+                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-accent rounded-full" 
+                        style={{ width: `${(storage.usedSize / storage.totalSize) * 100}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Free plan: {formatBytes(storage.totalSize)} storage limit
+                    </p>
+                  </div>
+                  
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Card className="border border-muted">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Audio Files</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-3xl font-bold">{formatBytes(storage.audioFiles.size)}</div>
+                        <p className="text-xs text-muted-foreground">{storage.audioFiles.count} files</p>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card className="border border-muted">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Images</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-3xl font-bold">{formatBytes(storage.images.size)}</div>
+                        <p className="text-xs text-muted-foreground">{storage.images.count} files</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  Unable to load storage information
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Free plan: 5GB storage limit
-                </p>
-              </div>
-              
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Card className="border border-muted">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Audio Files</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">3.2 GB</div>
-                    <p className="text-xs text-muted-foreground">45 files</p>
-                  </CardContent>
-                </Card>
-                
-                <Card className="border border-muted">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Images</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">0.8 GB</div>
-                    <p className="text-xs text-muted-foreground">62 files</p>
-                  </CardContent>
-                </Card>
-              </div>
+              )}
               
               <div className="flex items-center justify-between">
                 <div>

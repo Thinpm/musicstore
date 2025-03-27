@@ -36,49 +36,32 @@ import {
   Pencil, 
   Trash2, 
   Share,
-  Music
+  Music,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-// Sample playlists for demonstration
-const samplePlaylists = [
-  {
-    id: "1",
-    title: "Summer Vibes",
-    description: "Perfect tracks for sunny days",
-    coverUrl: "https://images.unsplash.com/photo-1534196511436-921a4e99f297?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8c3VtbWVyfGVufDB8fDB8fHww",
-    trackCount: 12,
-  },
-  {
-    id: "2",
-    title: "Chill Lofi Beats",
-    description: "Relaxing background music",
-    coverUrl: "https://images.unsplash.com/photo-1482442120256-9c4a5ab72d4c?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fGNoaWxsfGVufDB8fDB8fHww",
-    trackCount: 8,
-  },
-  {
-    id: "3",
-    title: "Workout Mix",
-    description: "High energy tracks for exercise",
-    coverUrl: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8d29ya291dHxlbnwwfHwwfHx8MA%3D%3D",
-    trackCount: 15,
-  },
-  {
-    id: "4",
-    title: "Focus & Study",
-    description: "Concentration enhancing sounds",
-    coverUrl: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8c3R1ZHl8ZW58MHx8MHx8fDA%3D",
-    trackCount: 10,
-  },
-];
+import { usePlaylistsByLetter, useCreatePlaylist, useDeletePlaylist } from "@/hooks/usePlaylists";
 
 const Playlists = () => {
-  const [playlists, setPlaylists] = useState(samplePlaylists);
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const [newPlaylistDescription, setNewPlaylistDescription] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [activeLetter, setActiveLetter] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Fetch playlists by letter
+  const { 
+    data: playlists = [], 
+    isLoading, 
+    isError 
+  } = usePlaylistsByLetter(activeLetter);
+  
+  // Create playlist mutation
+  const { mutate: createPlaylist, isPending: isCreating } = useCreatePlaylist();
+  
+  // Delete playlist mutation
+  const { mutate: deletePlaylist, isPending: isDeleting } = useDeletePlaylist();
 
   const handleCreatePlaylist = () => {
     if (newPlaylistName.trim() === "") {
@@ -90,31 +73,27 @@ const Playlists = () => {
       return;
     }
 
-    const newPlaylist = {
-      id: (playlists.length + 1).toString(),
+    createPlaylist({
       title: newPlaylistName,
       description: newPlaylistDescription || "My custom playlist",
       coverUrl: "/placeholder.svg",
-      trackCount: 0,
-    };
-
-    setPlaylists([...playlists, newPlaylist]);
-    setNewPlaylistName("");
-    setNewPlaylistDescription("");
-    setDialogOpen(false);
-
-    toast({
-      title: "Playlist created",
-      description: `${newPlaylistName} has been created successfully`,
+    }, {
+      onSuccess: () => {
+        setNewPlaylistName("");
+        setNewPlaylistDescription("");
+        setDialogOpen(false);
+      }
     });
   };
 
-  const handleDeletePlaylist = (id: string) => {
-    setPlaylists(playlists.filter((playlist) => playlist.id !== id));
-    toast({
-      title: "Playlist deleted",
-      description: "Playlist has been deleted successfully",
-    });
+  const handleDeletePlaylist = (id: string, title: string) => {
+    if (window.confirm(`Are you sure you want to delete "${title}"?`)) {
+      deletePlaylist(id);
+    }
+  };
+  
+  const handleLetterClick = (letter: string) => {
+    setActiveLetter(letter === activeLetter ? null : letter);
   };
 
   return (
@@ -167,26 +146,62 @@ const Playlists = () => {
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleCreatePlaylist}>Create Playlist</Button>
+              <Button onClick={handleCreatePlaylist} disabled={isCreating}>
+                {isCreating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Playlist"
+                )}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      {playlists.length === 0 ? (
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : isError ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="glass-card p-8 rounded-xl">
+            <h3 className="text-lg font-medium mb-2">Error loading playlists</h3>
+            <p className="text-muted-foreground mb-6">
+              There was a problem loading your playlists
+            </p>
+            <Button onClick={() => window.location.reload()}>Retry</Button>
+          </div>
+        </div>
+      ) : playlists.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="glass-card p-10 rounded-xl max-w-md mx-auto">
             <div className="p-3 rounded-full bg-muted mx-auto mb-4 w-fit">
               <ListMusic className="h-10 w-10 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-medium mb-2">No playlists yet</h3>
+            <h3 className="text-lg font-medium mb-2">
+              {activeLetter 
+                ? `No playlists starting with "${activeLetter}"` 
+                : "No playlists yet"}
+            </h3>
             <p className="text-muted-foreground mb-6">
-              Create your first playlist to organize your audio files
+              {activeLetter 
+                ? "Try selecting a different letter or create a new playlist"
+                : "Create your first playlist to organize your audio files"}
             </p>
-            <Button onClick={() => setDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create a Playlist
-            </Button>
+            <div className="flex justify-center space-x-4">
+              {activeLetter && (
+                <Button variant="outline" onClick={() => setActiveLetter(null)}>
+                  Show All Playlists
+                </Button>
+              )}
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create a Playlist
+              </Button>
+            </div>
           </div>
         </div>
       ) : (
@@ -227,13 +242,20 @@ const Playlists = () => {
                       <DropdownMenuItem>
                         <Pencil className="h-4 w-4 mr-2" /> Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/playlists/${playlist.id}`);
+                        toast({
+                          title: "Link copied",
+                          description: "Playlist link copied to clipboard",
+                        });
+                      }}>
                         <Share className="h-4 w-4 mr-2" /> Share
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem 
                         className="text-destructive"
-                        onClick={() => handleDeletePlaylist(playlist.id)}
+                        onClick={() => handleDeletePlaylist(playlist.id, playlist.title)}
+                        disabled={isDeleting}
                       >
                         <Trash2 className="h-4 w-4 mr-2" /> Delete
                       </DropdownMenuItem>

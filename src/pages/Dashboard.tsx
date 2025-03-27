@@ -1,75 +1,32 @@
 
 import { useState } from "react";
-import { useAudioPlayer, Track } from "@/components/audio/audio-player-provider";
+import { useAudioPlayer } from "@/components/audio/audio-player-provider";
 import AudioCard from "@/components/audio/audio-card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Filter, Grid, ListMusic } from "lucide-react";
-
-// Sample data for demonstration
-const sampleTracks: Track[] = [
-  {
-    id: "1",
-    title: "Digital Resonance",
-    artist: "Electronic Waves",
-    duration: 243,
-    url: "/sample.mp3",
-    cover: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTF8fG11c2ljfGVufDB8fDB8fHww",
-  },
-  {
-    id: "2",
-    title: "Ambient Reflections",
-    artist: "Chill Horizon",
-    duration: 312,
-    url: "/sample.mp3",
-    cover: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8bXVzaWN8ZW58MHx8MHx8fDA%3D",
-  },
-  {
-    id: "3",
-    title: "Urban Echoes",
-    artist: "City Pulse",
-    duration: 198,
-    url: "/sample.mp3",
-    cover: "https://images.unsplash.com/photo-1494232410401-ad00d5433cfa?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8N3x8bXVzaWN8ZW58MHx8MHx8fDA%3D",
-  },
-  {
-    id: "4",
-    title: "Night Drive",
-    artist: "Midnight Cruisers",
-    duration: 274,
-    url: "/sample.mp3",
-    cover: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OHx8bXVzaWN8ZW58MHx8MHx8fDA%3D",
-  },
-  {
-    id: "5",
-    title: "Sunrise Memories",
-    artist: "Dawn Collective",
-    duration: 226,
-    url: "/sample.mp3",
-    cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fG11c2ljfGVufDB8fDB8fHww",
-  },
-  {
-    id: "6",
-    title: "Sunset Grooves",
-    artist: "Coastal Rhythms",
-    duration: 258,
-    url: "/sample.mp3",
-    cover: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fG11c2ljfGVufDB8fDB8fHww",
-  },
-];
+import { useTracksByLetter } from "@/hooks/useTracks";
 
 const Dashboard = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeLetter, setActiveLetter] = useState<string | null>(null);
   const { playTrack } = useAudioPlayer();
+  
+  // Fetch tracks by first letter
+  const { data: tracks = [], isLoading, isError } = useTracksByLetter(activeLetter);
 
   // Filter tracks based on search query
-  const filteredTracks = sampleTracks.filter(
+  const filteredTracks = tracks.filter(
     (track) =>
       track.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       track.artist.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleLetterClick = (letter: string) => {
+    setActiveLetter(letter === activeLetter ? null : letter);
+  };
 
   return (
     <div className="animate-fade-in">
@@ -126,14 +83,32 @@ const Dashboard = () => {
               <TabsTrigger value="favorites">Favorites</TabsTrigger>
             </TabsList>
             <TabsContent value="all" className="mt-4">
-              {filteredTracks.length === 0 ? (
+              {isLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="loading-spinner h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
+                </div>
+              ) : isError ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="glass-card p-8 rounded-xl">
+                    <h3 className="text-lg font-medium mb-2">Error loading audio files</h3>
+                    <p className="text-muted-foreground mb-6">
+                      There was a problem loading your audio files
+                    </p>
+                    <Button onClick={() => window.location.reload()}>Retry</Button>
+                  </div>
+                </div>
+              ) : filteredTracks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <div className="glass-card p-8 rounded-xl">
                     <h3 className="text-lg font-medium mb-2">No audio files found</h3>
                     <p className="text-muted-foreground mb-6">
-                      Upload some audio files to get started
+                      {activeLetter 
+                        ? `No tracks starting with "${activeLetter}"`
+                        : "Upload some audio files to get started"}
                     </p>
-                    <Button>Upload Files</Button>
+                    <Button onClick={() => setActiveLetter(null)}>
+                      {activeLetter ? "Show All Tracks" : "Upload Files"}
+                    </Button>
                   </div>
                 </div>
               ) : viewMode === "grid" ? (

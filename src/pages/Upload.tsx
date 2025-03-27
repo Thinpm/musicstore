@@ -10,7 +10,8 @@ import {
   X, 
   Check,
   Image,
-  Info
+  Info,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +20,8 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip";
+import { useUploadTrack } from "@/hooks/useTracks";
+import { useStorageInfo } from "@/hooks/useUser";
 
 const Upload = () => {
   const [dragActive, setDragActive] = useState(false);
@@ -27,11 +30,15 @@ const Upload = () => {
   const [artist, setArtist] = useState("");
   const [coverImage, setCoverImage] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  
+  // Get storage info to check available space
+  const { data: storage } = useStorageInfo();
+  
+  // Upload track mutation
+  const { mutate: uploadTrack, isPending: isUploading, progress } = useUploadTrack();
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -110,22 +117,35 @@ const Upload = () => {
       return;
     }
 
-    setIsUploading(true);
-    
-    // Simulate upload progress
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 5;
-      setUploadProgress(progress);
+    // Check if there's enough storage space
+    if (storage) {
+      const totalUploadSize = uploadedFiles.reduce((acc, file) => acc + file.size, 0);
+      const availableSpace = storage.totalSize - storage.usedSize;
       
-      if (progress >= 100) {
-        clearInterval(interval);
-        setIsUploading(false);
-        setUploadProgress(0);
+      if (totalUploadSize > availableSpace) {
         toast({
-          title: "Upload complete",
-          description: `${uploadedFiles.length} files uploaded successfully`,
+          title: "Not enough storage",
+          description: "You don't have enough storage space for these files",
+          variant: "destructive",
         });
+        return;
+      }
+    }
+
+    // For simplicity, we'll just upload the first file for now
+    // In a real app, you'd want to handle multiple files with Promise.all or a queue
+    const file = uploadedFiles[0];
+    
+    uploadTrack({
+      file,
+      metadata: {
+        title: title || file.name.replace(/\.[^/.]+$/, ""),
+        artist: artist || "Unknown Artist",
+        cover: coverPreview || ""
+      }
+    }, {
+      onSuccess: () => {
+        // Reset form
         setUploadedFiles([]);
         setTitle("");
         setArtist("");
@@ -135,7 +155,7 @@ const Upload = () => {
           setCoverPreview(null);
         }
       }
-    }, 200);
+    });
   };
 
   return (
@@ -338,12 +358,12 @@ const Upload = () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span>Uploading...</span>
-                      <span>{uploadProgress}%</span>
+                      <span>{Math.round(progress || 0)}%</span>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
                       <div 
                         className="bg-accent h-2 rounded-full transition-all duration-300" 
-                        style={{ width: `${uploadProgress}%` }}
+                        style={{ width: `${progress || 0}%` }}
                       ></div>
                     </div>
                   </div>
@@ -351,11 +371,18 @@ const Upload = () => {
                   <div className="flex justify-end">
                     <Button 
                       onClick={handleUpload}
-                      disabled={uploadedFiles.length === 0}
+                      disabled={uploadedFiles.length === 0 || isUploading}
                       className="hover-effect"
                     >
-                      <Check className="mr-2 h-4 w-4" />
-                      Upload Files
+                      {isUploading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="mr-2 h-4 w-4" /> Upload Files
+                        </>
+                      )}
                     </Button>
                   </div>
                 )}

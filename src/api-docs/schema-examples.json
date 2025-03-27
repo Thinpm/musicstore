@@ -1,0 +1,142 @@
+
+{
+  "User": {
+    "id": "user-123",
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "username": "johndoe",
+    "bio": "Music enthusiast and content creator",
+    "avatarUrl": "/placeholder.svg",
+    "storageUsed": 28,
+    "createdAt": "2023-01-15T12:00:00Z",
+    "updatedAt": "2023-05-25T15:30:00Z"
+  },
+  
+  "UserStorage": {
+    "totalSize": 5368709120,
+    "usedSize": 1503238553,
+    "audioFiles": {
+      "count": 45,
+      "size": 3435973836
+    },
+    "images": {
+      "count": 62,
+      "size": 858993459
+    }
+  },
+  
+  "Track": {
+    "id": "track-101",
+    "title": "Beach Sunrise",
+    "artist": "Ocean Waves",
+    "duration": 217,
+    "url": "/api/tracks/track-101/stream",
+    "cover": "https://example.com/images/beach-sunrise.jpg",
+    "waveform": "/api/tracks/track-101/waveform",
+    "playCount": 1243,
+    "createdAt": "2023-06-12T09:30:00Z",
+    "fileSize": 4194304,
+    "genre": "Ambient",
+    "isPublic": true
+  },
+  
+  "Playlist": {
+    "id": "playlist-1",
+    "title": "Summer Vibes",
+    "description": "Perfect tracks for sunny days",
+    "coverUrl": "https://example.com/images/summer-vibes.jpg",
+    "trackCount": 12,
+    "createdAt": "2023-05-10T14:20:00Z",
+    "updatedAt": "2023-06-15T11:45:00Z",
+    "createdBy": "user-123",
+    "isPublic": true,
+    "tags": ["summer", "chill", "relaxing"]
+  },
+  
+  "PlaylistWithTracks": {
+    "id": "playlist-1",
+    "title": "Summer Vibes",
+    "description": "Perfect tracks for sunny days",
+    "coverUrl": "https://example.com/images/summer-vibes.jpg",
+    "trackCount": 2,
+    "createdAt": "2023-05-10T14:20:00Z",
+    "updatedAt": "2023-06-15T11:45:00Z",
+    "createdBy": "user-123",
+    "isPublic": true,
+    "tags": ["summer", "chill", "relaxing"],
+    "tracks": [
+      {
+        "id": "track-101",
+        "title": "Beach Sunrise",
+        "artist": "Ocean Waves",
+        "duration": 217,
+        "url": "/api/tracks/track-101/stream",
+        "cover": "https://example.com/images/beach-sunrise.jpg"
+      },
+      {
+        "id": "track-102",
+        "title": "Tropical Breeze",
+        "artist": "Island Sounds",
+        "duration": 198,
+        "url": "/api/tracks/track-102/stream",
+        "cover": "https://example.com/images/tropical-breeze.jpg"
+      }
+    ]
+  },
+  
+  "SearchResults": {
+    "tracks": [
+      {
+        "id": "track-101",
+        "title": "Beach Sunrise",
+        "artist": "Ocean Waves",
+        "duration": 217,
+        "url": "/api/tracks/track-101/stream",
+        "cover": "https://example.com/images/beach-sunrise.jpg"
+      }
+    ],
+    "playlists": [
+      {
+        "id": "playlist-1",
+        "title": "Summer Vibes",
+        "description": "Perfect tracks for sunny days",
+        "coverUrl": "https://example.com/images/summer-vibes.jpg",
+        "trackCount": 12
+      }
+    ],
+    "users": [
+      {
+        "id": "user-456",
+        "name": "Jane Smith",
+        "username": "janesmith",
+        "avatarUrl": "/api/users/user-456/avatar"
+      }
+    ]
+  },
+  
+  "AuthResponse": {
+    "user": {
+      "id": "user-123",
+      "name": "John Doe",
+      "email": "john.doe@example.com",
+      "username": "johndoe",
+      "bio": "Music enthusiast and content creator",
+      "avatarUrl": "/placeholder.svg",
+      "storageUsed": 28,
+      "createdAt": "2023-01-15T12:00:00Z",
+      "updatedAt": "2023-05-25T15:30:00Z"
+    },
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTEyMyIsIm5hbWUiOiJKb2huIERvZSIsImlhdCI6MTUxNjIzOTAyMn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+  },
+  
+  "Error": {
+    "statusCode": 400,
+    "message": "Invalid input data",
+    "errors": [
+      {
+        "field": "email",
+        "message": "Email must be a valid email address"
+      }
+    ]
+  }
+}
