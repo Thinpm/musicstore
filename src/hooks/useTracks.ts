@@ -33,9 +33,14 @@ export function useUploadTrack() {
   return useMutation({
     mutationFn: (data: { 
       file: File, 
-      metadata: Omit<Track, 'id' | 'url' | 'duration'> 
+      metadata: Omit<Track, 'id' | 'url' | 'duration'>,
+      onProgressUpdate?: (progress: number) => void
     }) => {
-      return trackService.uploadTrack(data.file, data.metadata);
+      return trackService.uploadTrack(
+        data.file, 
+        data.metadata, 
+        data.onProgressUpdate
+      );
     },
     onSuccess: (data) => {
       if (data) {

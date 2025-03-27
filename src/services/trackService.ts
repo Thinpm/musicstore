@@ -1,3 +1,4 @@
+
 import { apiService } from "./api";
 import { Track } from "@/components/audio/audio-player-provider";
 
@@ -150,11 +151,12 @@ export const trackService = {
    */
   uploadTrack: async (
     file: File, 
-    metadata: Omit<Track, 'id' | 'url' | 'duration'>
+    metadata: Omit<Track, 'id' | 'url' | 'duration'>,
+    onProgressUpdate?: (progress: number) => void
   ): Promise<Track | null> => {
     try {
       if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        // Simulate successful upload with mock data
+        // Simulate successful upload with mock data and progress updates
         const newId = (Math.max(...MOCK_TRACKS.map(t => parseInt(t.id))) + 1).toString();
         
         // Get audio duration
@@ -184,8 +186,20 @@ export const trackService = {
           cover: metadata.cover || "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTF8fG11c2ljfGVufDB8fDB8fHww",
         };
         
+        // Simulate upload progress
+        let progress = 0;
+        const interval = setInterval(() => {
+          progress += 10;
+          if (onProgressUpdate) {
+            onProgressUpdate(progress);
+          }
+          if (progress >= 100) {
+            clearInterval(interval);
+          }
+        }, 300);
+        
         // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 3000));
         
         return newTrack;
       }
@@ -195,12 +209,24 @@ export const trackService = {
       formData.append('file', file);
       formData.append('metadata', JSON.stringify(metadata));
       
-      return await apiService.post<Track>('/tracks/upload', formData, {
-        headers: {
-          // Remove Content-Type to let browser set it with boundary for FormData
-          'Content-Type': undefined as any,
-        },
-      });
+      // Set up progress tracking for real API calls
+      const options: RequestInit & { 
+        headers: Record<string, string>,
+        onUploadProgress?: (progressEvent: { loaded: number; total: number }) => void 
+      } = {
+        method: 'POST',
+        headers: {},
+        // This would be used if we were using axios or a similar library
+        // The fetch API doesn't support progress tracking natively
+        onUploadProgress: (progressEvent) => {
+          if (onProgressUpdate && progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            onProgressUpdate(percentCompleted);
+          }
+        }
+      };
+      
+      return await apiService.post<Track>('/tracks/upload', formData, options);
     } catch (error) {
       console.error("Error uploading track:", error);
       return null;

@@ -33,10 +33,15 @@ export const handleApiError = (error: unknown) => {
   return { error: message };
 };
 
+// Extended RequestInit type to include onUploadProgress
+interface ExtendedRequestInit extends RequestInit {
+  onUploadProgress?: (progressEvent: { loaded: number; total: number }) => void;
+}
+
 // Generic fetch wrapper with error handling
 export async function apiFetch<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: ExtendedRequestInit = {}
 ): Promise<T> {
   try {
     // Combine default and custom headers
@@ -53,8 +58,57 @@ export async function apiFetch<T>(
 
     const url = `${API_URL}${endpoint}`;
     
+    // Remove custom options before passing to fetch
+    const { onUploadProgress, ...fetchOptions } = options;
+
+    // If this is a file upload with progress tracking and FormData body
+    if (onUploadProgress && options.body instanceof FormData) {
+      // Use XMLHttpRequest for upload progress tracking
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open(options.method || 'GET', url);
+        
+        // Add headers
+        Object.keys(headers).forEach(key => {
+          xhr.setRequestHeader(key, headers[key]);
+        });
+        
+        // Track upload progress
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable && onUploadProgress) {
+            onUploadProgress({
+              loaded: event.loaded,
+              total: event.total
+            });
+          }
+        };
+        
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              resolve(data as T);
+            } catch (e) {
+              reject(new Error('Invalid JSON response'));
+            }
+          } else {
+            try {
+              const errorData = JSON.parse(xhr.responseText);
+              reject(new Error(errorData.message || `API error: ${xhr.status}`));
+            } catch (e) {
+              reject(new Error(`API error: ${xhr.status}`));
+            }
+          }
+        };
+        
+        xhr.onerror = () => reject(new Error('Network error'));
+        xhr.send(options.body as FormData);
+      });
+    }
+    
+    // Standard fetch for non-progress tracking requests
     const response = await fetch(url, {
-      ...options,
+      ...fetchOptions,
       headers,
     });
 
@@ -77,23 +131,27 @@ export async function apiFetch<T>(
 
 // Convenience methods for common HTTP methods
 export const apiService = {
-  get: <T>(endpoint: string, options: RequestInit = {}) => 
+  get: <T>(endpoint: string, options: ExtendedRequestInit = {}) => 
     apiFetch<T>(endpoint, { ...options, method: "GET" }),
     
-  post: <T>(endpoint: string, data: unknown, options: RequestInit = {}) =>
+  post: <T>(endpoint: string, data: unknown, options: ExtendedRequestInit = {}) =>
     apiFetch<T>(endpoint, {
       ...options,
       method: "POST",
-      body: JSON.stringify(data),
+      body: typeof data === "string" || data instanceof FormData 
+        ? data 
+        : JSON.stringify(data),
     }),
     
-  put: <T>(endpoint: string, data: unknown, options: RequestInit = {}) =>
+  put: <T>(endpoint: string, data: unknown, options: ExtendedRequestInit = {}) =>
     apiFetch<T>(endpoint, {
       ...options,
       method: "PUT",
-      body: JSON.stringify(data),
+      body: typeof data === "string" || data instanceof FormData 
+        ? data 
+        : JSON.stringify(data),
     }),
     
-  delete: <T>(endpoint: string, options: RequestInit = {}) =>
+  delete: <T>(endpoint: string, options: ExtendedRequestInit = {}) =>
     apiFetch<T>(endpoint, { ...options, method: "DELETE" }),
 };

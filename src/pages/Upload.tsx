@@ -1,9 +1,9 @@
-
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { 
   Upload as UploadIcon, 
   Music, 
@@ -30,6 +30,7 @@ const Upload = () => {
   const [artist, setArtist] = useState("");
   const [coverImage, setCoverImage] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -38,7 +39,7 @@ const Upload = () => {
   const { data: storage } = useStorageInfo();
   
   // Upload track mutation
-  const { mutate: uploadTrack, isPending: isUploading, progress } = useUploadTrack();
+  const { mutate: uploadTrack, isPending: isUploading } = useUploadTrack();
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -132,6 +133,9 @@ const Upload = () => {
       }
     }
 
+    // Reset progress
+    setUploadProgress(0);
+
     // For simplicity, we'll just upload the first file for now
     // In a real app, you'd want to handle multiple files with Promise.all or a queue
     const file = uploadedFiles[0];
@@ -142,6 +146,9 @@ const Upload = () => {
         title: title || file.name.replace(/\.[^/.]+$/, ""),
         artist: artist || "Unknown Artist",
         cover: coverPreview || ""
+      },
+      onProgressUpdate: (progress) => {
+        setUploadProgress(progress);
       }
     }, {
       onSuccess: () => {
@@ -154,6 +161,7 @@ const Upload = () => {
           URL.revokeObjectURL(coverPreview);
           setCoverPreview(null);
         }
+        setUploadProgress(0);
       }
     });
   };
@@ -169,7 +177,6 @@ const Upload = () => {
 
       <div className="grid gap-6 md:grid-cols-2">
         <div className="flex flex-col space-y-4">
-          {/* Drag & Drop Zone */}
           <div 
             className={cn(
               "border-2 border-dashed rounded-lg p-10 text-center transition-all duration-300 hover-effect",
@@ -211,7 +218,6 @@ const Upload = () => {
             </div>
           </div>
 
-          {/* List of uploaded files */}
           {uploadedFiles.length > 0 && (
             <Card>
               <CardContent className="p-4">
@@ -358,14 +364,9 @@ const Upload = () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span>Uploading...</span>
-                      <span>{Math.round(progress || 0)}%</span>
+                      <span>{Math.round(uploadProgress)}%</span>
                     </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className="bg-accent h-2 rounded-full transition-all duration-300" 
-                        style={{ width: `${progress || 0}%` }}
-                      ></div>
-                    </div>
+                    <Progress value={uploadProgress} className="h-2" />
                   </div>
                 ) : (
                   <div className="flex justify-end">
