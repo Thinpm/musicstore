@@ -1,5 +1,4 @@
-
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useRef, useEffect } from "react";
 
 export interface Track {
   id: string;
@@ -10,18 +9,29 @@ export interface Track {
   url: string;
 }
 
+interface PlaylistContext {
+  tracks: Track[];
+  currentIndex: number;
+}
+
 type AudioPlayerContextType = {
   currentTrack: Track | null;
   isPlaying: boolean;
   volume: number;
   progress: number;
-  playTrack: (track: Track) => void;
+  isLooping: boolean;
+  isShuffling: boolean;
+  playTrack: (track: Track, playlistContext?: PlaylistContext) => void;
   pauseTrack: () => void;
   resumeTrack: () => void;
   setVolume: (value: number) => void;
   setProgress: (value: number) => void;
   nextTrack: () => void;
   previousTrack: () => void;
+  toggleLoop: () => void;
+  toggleShuffle: () => void;
+  playHistory: Track[];
+  currentPlaylist: PlaylistContext | null;
 };
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(
@@ -37,11 +47,45 @@ export const AudioPlayerProvider = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.7);
   const [progress, setProgress] = useState(0);
+  const [isLooping, setIsLooping] = useState(false);
+  const [isShuffling, setIsShuffling] = useState(false);
+  const [playHistory, setPlayHistory] = useState<Track[]>([]);
+  const [currentPlaylist, setCurrentPlaylist] = useState<PlaylistContext | null>(null);
+  
+  const autoAdvanceRef = useRef(true);
 
-  const playTrack = (track: Track) => {
+  useEffect(() => {
+    if (currentTrack && progress >= 0.999 && autoAdvanceRef.current) {
+      const timer = setTimeout(() => {
+        nextTrack();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [progress, currentTrack]);
+
+  const playTrack = (track: Track, playlistContext?: PlaylistContext) => {
     setCurrentTrack(track);
     setIsPlaying(true);
     setProgress(0);
+    
+    setPlayHistory(prev => {
+      const newHistory = [...prev];
+      
+      if (newHistory.length === 0 || newHistory[newHistory.length - 1].id !== track.id) {
+        newHistory.push(track);
+      }
+      
+      if (newHistory.length > 50) {
+        return newHistory.slice(newHistory.length - 50);
+      }
+      
+      return newHistory;
+    });
+    
+    if (playlistContext) {
+      setCurrentPlaylist(playlistContext);
+    }
   };
 
   const pauseTrack = () => {
@@ -53,14 +97,55 @@ export const AudioPlayerProvider = ({
   };
 
   const nextTrack = () => {
-    // For now, just a placeholder for next track functionality
-    // In a real implementation, you would manage a queue or playlist
-    console.log("Next track requested");
+    if (!currentPlaylist || !currentTrack) return;
+    
+    const { tracks, currentIndex } = currentPlaylist;
+    
+    if (isShuffling) {
+      if (tracks.length <= 1) return;
+      
+      let randomIndex;
+      do {
+        randomIndex = Math.floor(Math.random() * tracks.length);
+      } while (randomIndex === currentIndex);
+      
+      const nextTrack = tracks[randomIndex];
+      playTrack(nextTrack, { tracks, currentIndex: randomIndex });
+      return;
+    }
+    
+    if (currentIndex < tracks.length - 1) {
+      const nextTrack = tracks[currentIndex + 1];
+      playTrack(nextTrack, { tracks, currentIndex: currentIndex + 1 });
+    } else if (isLooping) {
+      const nextTrack = tracks[0];
+      playTrack(nextTrack, { tracks, currentIndex: 0 });
+    } else {
+      pauseTrack();
+      setProgress(0);
+    }
   };
 
   const previousTrack = () => {
-    // For now, just a placeholder for previous track functionality
-    console.log("Previous track requested");
+    if (!currentPlaylist || !currentTrack) return;
+    
+    const { tracks, currentIndex } = currentPlaylist;
+    
+    if (currentIndex === 0) {
+      setProgress(0);
+      return;
+    }
+    
+    const prevTrack = tracks[currentIndex - 1];
+    playTrack(prevTrack, { tracks, currentIndex: currentIndex - 1 });
+  };
+  
+  const toggleLoop = () => {
+    setIsLooping(!isLooping);
+  };
+  
+  const toggleShuffle = () => {
+    setIsShuffling(!isShuffling);
   };
 
   return (
@@ -70,6 +155,8 @@ export const AudioPlayerProvider = ({
         isPlaying,
         volume,
         progress,
+        isLooping,
+        isShuffling,
         playTrack,
         pauseTrack,
         resumeTrack,
@@ -77,6 +164,10 @@ export const AudioPlayerProvider = ({
         setProgress,
         nextTrack,
         previousTrack,
+        toggleLoop,
+        toggleShuffle,
+        playHistory,
+        currentPlaylist,
       }}
     >
       {children}

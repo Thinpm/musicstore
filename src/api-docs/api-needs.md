@@ -33,6 +33,8 @@ This document describes the API endpoints needed by the frontend. Backend develo
 | POST   | `/api/tracks/upload`      | Upload a new track                               | FormData with `file` and `metadata`            | `Track`                                |
 | PUT    | `/api/tracks/:id`         | Update track metadata                            | `{ title?, artist?, cover? }`                  | `Track`                                |
 | DELETE | `/api/tracks/:id`         | Delete a track                                   | N/A                                            | `{ success: boolean }`                 |
+| POST   | `/api/tracks/:id/play`    | Record a play for analytics                      | N/A                                            | `{ success: boolean }`                 |
+| GET    | `/api/tracks/:id/waveform` | Get track waveform data                         | N/A                                            | `number[]` (waveform data points)      |
 
 ## Playlists Endpoints
 
@@ -45,6 +47,18 @@ This document describes the API endpoints needed by the frontend. Backend develo
 | DELETE | `/api/playlists/:id`      | Delete a playlist                                | N/A                                            | `{ success: boolean }`                 |
 | POST   | `/api/playlists/:id/tracks` | Add a track to a playlist                      | `{ trackId }`                                  | `{ success: boolean }`                 |
 | DELETE | `/api/playlists/:id/tracks/:trackId` | Remove a track from playlist          | N/A                                            | `{ success: boolean }`                 |
+| PUT    | `/api/playlists/:id/tracks/reorder` | Reorder tracks in a playlist           | `{ trackIds: string[] }`                       | `{ success: boolean }`                 |
+
+## User Playback State Endpoints
+
+| Method | Endpoint                  | Description                                      | Request Body / Query Params                    | Response                                |
+|--------|---------------------------|--------------------------------------------------|------------------------------------------------|----------------------------------------|
+| GET    | `/api/user/playback`      | Get user's playback state                        | N/A                                            | `{ currentTrackId: string, progress: number, isPlaying: boolean, volume: number }` |
+| PUT    | `/api/user/playback`      | Update user's playback state                     | `{ currentTrackId?: string, progress?: number, isPlaying?: boolean, volume?: number }` | `{ success: boolean }` |
+| GET    | `/api/user/play-history`  | Get user's recently played tracks                | Query: `limit` (default 20)                    | `Track[]`                              |
+| GET    | `/api/user/queue`         | Get user's play queue                            | N/A                                            | `Track[]`                              |
+| POST   | `/api/user/queue`         | Add tracks to queue                              | `{ trackIds: string[] }`                       | `{ success: boolean }`                 |
+| DELETE | `/api/user/queue/:trackId` | Remove track from queue                         | N/A                                            | `{ success: boolean }`                 |
 
 ## Search Endpoints
 

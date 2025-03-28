@@ -138,5 +138,57 @@
         "message": "Email must be a valid email address"
       }
     ]
+  },
+  
+  "UserPlaybackState": {
+    "currentTrackId": "track-101",
+    "progress": 0.37,
+    "isPlaying": true,
+    "volume": 0.8,
+    "isLooping": false,
+    "isShuffling": true,
+    "updatedAt": "2023-08-15T10:25:00Z"
+  },
+  
+  "PlayHistory": {
+    "tracks": [
+      {
+        "id": "track-101",
+        "title": "Beach Sunrise",
+        "artist": "Ocean Waves",
+        "playedAt": "2023-08-15T10:25:00Z",
+        "duration": 217,
+        "cover": "https://example.com/images/beach-sunrise.jpg"
+      },
+      {
+        "id": "track-102",
+        "title": "Tropical Breeze",
+        "artist": "Island Sounds",
+        "playedAt": "2023-08-15T10:20:00Z",
+        "duration": 198,
+        "cover": "https://example.com/images/tropical-breeze.jpg"
+      }
+    ]
+  },
+  
+  "Queue": {
+    "currentTrack": {
+      "id": "track-101",
+      "title": "Beach Sunrise",
+      "artist": "Ocean Waves",
+      "duration": 217,
+      "url": "/api/tracks/track-101/stream",
+      "cover": "https://example.com/images/beach-sunrise.jpg"
+    },
+    "nextTracks": [
+      {
+        "id": "track-102",
+        "title": "Tropical Breeze",
+        "artist": "Island Sounds",
+        "duration": 198,
+        "url": "/api/tracks/track-102/stream",
+        "cover": "https://example.com/images/tropical-breeze.jpg"
+      }
+    ]
   }
 }

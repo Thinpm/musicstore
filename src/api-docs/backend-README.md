@@ -45,6 +45,8 @@ The backend follows a layered architecture:
 - **playlist_tracks** - Many-to-many relationship between playlists and tracks
 - **favorites** - Users' favorite tracks
 - **play_history** - Track play history for recommendations
+- **user_playback_state** - State of current playback (current track, progress, volume)
+- **play_queue** - User's queued tracks for continuous playback
 
 ### File Storage (Supabase Storage)
 
@@ -66,12 +68,15 @@ The backend follows a layered architecture:
    - Playlist creation and management
    - Track filtering (A-Z, genres, etc.)
    - Search functionality across tracks, playlists, and users
+   - Playback state tracking and syncing across devices
+   - Play history tracking for analytics and recommendations
 
 3. **Data Processing Requirements:**
    - Extract metadata from uploaded audio files (title, artist, duration)
    - Generate waveform data for audio visualization
    - Process and optimize cover images
    - Track play count and user activity for analytics
+   - Store and retrieve playback state for continuous listening experience
 
 ## ⚙️ Environment Configuration
 
@@ -106,6 +111,35 @@ Follow the schemas in `schema-examples.json` closely when designing your databas
 - Define indexes for frequently queried fields
 - Implement Row Level Security (RLS) policies in Supabase
 
+### Playback State Tracking
+
+For the full-screen player and continuous playback features, implement these tables:
+
+#### user_playback_state
+- **user_id** (Primary Key, FK to users) - The user's ID
+- **current_track_id** (FK to tracks) - Currently playing track
+- **progress** (float) - Current playback position (0.0 to 1.0)
+- **volume** (float) - Current volume level (0.0 to 1.0)
+- **is_playing** (boolean) - Whether playback is active
+- **is_looping** (boolean) - Whether repeat mode is enabled
+- **is_shuffling** (boolean) - Whether shuffle mode is enabled
+- **updated_at** (timestamp) - Last update time
+
+#### play_history
+- **id** (Primary Key, UUID) - Unique ID for the play event
+- **user_id** (FK to users) - The user who played the track
+- **track_id** (FK to tracks) - The track that was played
+- **played_at** (timestamp) - When the track was played
+- **play_duration** (integer) - How many seconds the track was played
+- **source** (string) - From where the track was played (playlist, search, etc.)
+
+#### play_queue
+- **id** (Primary Key, UUID) - Unique queue entry ID
+- **user_id** (FK to users) - The user's queue
+- **track_id** (FK to tracks) - Track in the queue
+- **position** (integer) - Position in the queue (for ordering)
+- **added_at** (timestamp) - When the track was added to the queue
+
 ## 🔄 Real-time Features
 
 Some features may benefit from real-time updates:
@@ -114,6 +148,8 @@ Some features may benefit from real-time updates:
 - Play count updates
 - New playlist notifications
 - Collaborative playlist editing
+- Sync playback state across multiple devices
+- Real-time player queue updates
 
 ## 📝 Implementation Notes
 
@@ -127,12 +163,20 @@ Some features may benefit from real-time updates:
    - Optimize database queries with appropriate indexes
    - Use caching where appropriate
    - Consider implementing CDN for audio file delivery
+   - Optimize waveform data for quick loading in the full-screen player
 
 3. **Security Best Practices**
    - Sanitize all user inputs
    - Implement proper access controls at the database level
    - Set up rate limiting to prevent abuse
    - Follow OWASP security guidelines
+   - Secure playback URLs to prevent unauthorized access
+
+4. **Playback State Management**
+   - Update play count only when a significant portion of the track has been played
+   - Store playback state periodically (not on every progress update)
+   - Implement efficient queue management for continuous playback
+   - Consider WebSocket connections for real-time sync across devices
 
 ## 🚀 Getting Started
 
