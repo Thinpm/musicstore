@@ -18,7 +18,6 @@ import {
   Share,
   Heart,
   ChevronUp,
-  ChevronDown,
   Maximize2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -146,20 +145,6 @@ const AudioPlayer = () => {
   return (
     <>
       <div className={cn("audio-player-container", collapsed && "collapsed")}>
-        <div className="audio-player-toggle" onClick={toggleCollapse}>
-          {collapsed ? (
-            <>
-              <span className="mr-1 hidden sm:inline">Expand Player</span>
-              <ChevronUp className="h-4 w-4" />
-            </>
-          ) : (
-            <>
-              <span className="mr-1 hidden sm:inline">Collapse Player</span>
-              <ChevronDown className="h-4 w-4" />
-            </>
-          )}
-        </div>
-        
         <div className="glass-panel p-4 border-t shadow-md animate-fade-in">
           <audio
             ref={audioRef}
@@ -388,6 +373,18 @@ const AudioPlayer = () => {
           </div>
         </div>
       </div>
+      
+      {/* Expand Button (only visible when player is collapsed) */}
+      {collapsed && (
+        <button 
+          className="audio-player-toggle"
+          onClick={toggleCollapse}
+          aria-label="Expand Player"
+        >
+          <ChevronUp className="h-4 w-4 mr-1" />
+          <span>Expand Player</span>
+        </button>
+      )}
       
       {/* Full Screen Player */}
       <FullScreenPlayer isOpen={isFullScreen} onClose={closeFullScreen} />

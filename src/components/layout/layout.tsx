@@ -18,8 +18,7 @@ const Layout = () => {
         <Navbar />
         <main 
           className={cn(
-            "flex-1 overflow-auto p-4 md:p-6 transition-all duration-300",
-            currentTrack && "pb-28" // Add padding when player is active
+            "flex-1 overflow-auto p-4 md:p-6 transition-all duration-300"
           )}
         >
           <div className="container mx-auto max-w-7xl">
