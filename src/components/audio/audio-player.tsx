@@ -18,7 +18,8 @@ import {
   Share,
   Heart,
   ChevronUp,
-  Maximize2
+  Maximize2,
+  Music
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { 
@@ -381,7 +382,7 @@ const AudioPlayer = () => {
           onClick={toggleCollapse}
           aria-label="Expand Player"
         >
-          <ChevronUp className="h-4 w-4 mr-1" />
+          <Music className="h-4 w-4 mr-1" />
           <span>Expand Player</span>
         </button>
       )}
