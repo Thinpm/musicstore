@@ -140,7 +140,6 @@
          hover:bg-accent/10 transition-colors;
 }
 
-/* Animation for full-screen player */
 @keyframes scale-in {
   0% {
     transform: scale(0.95);

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useAudioPlayer, Track } from "./audio-player-provider";
 import { Button } from "@/components/ui/button";
@@ -18,6 +17,7 @@ import {
   Share,
   Heart,
   ChevronUp,
+  ChevronDown,
   Maximize2,
   Music
 } from "lucide-react";
@@ -58,14 +58,12 @@ const AudioPlayer = () => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [liked, setLiked] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
-    // Check if we have a saved preference in localStorage
     const savedState = localStorage.getItem("audioPlayerCollapsed");
     return savedState === "true";
   });
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   useEffect(() => {
-    // Save the collapsed state to localStorage whenever it changes
     localStorage.setItem("audioPlayerCollapsed", String(collapsed));
   }, [collapsed]);
 
@@ -95,7 +93,6 @@ const AudioPlayer = () => {
 
     audio.volume = volume;
     
-    // Handle looping
     audio.loop = isLooping;
 
     return () => {
@@ -155,7 +152,6 @@ const AudioPlayer = () => {
           />
 
           <div className="flex items-center justify-between">
-            {/* Track Info */}
             <div className="flex items-center space-x-4 w-1/4">
               <div 
                 className="relative h-12 w-12 overflow-hidden rounded-md bg-muted animate-pulse-subtle cursor-pointer"
@@ -200,7 +196,6 @@ const AudioPlayer = () => {
               </Tooltip>
             </div>
 
-            {/* Player Controls */}
             <div className="flex flex-col w-2/4 space-y-2">
               <div className="flex items-center justify-center space-x-2">
                 <Tooltip>
@@ -303,7 +298,6 @@ const AudioPlayer = () => {
               </div>
             </div>
 
-            {/* Additional Controls */}
             <div className="flex items-center justify-end space-x-2 w-1/4">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -375,19 +369,24 @@ const AudioPlayer = () => {
         </div>
       </div>
       
-      {/* Expand Button (only visible when player is collapsed) */}
-      {collapsed && (
-        <button 
-          className="audio-player-toggle"
-          onClick={toggleCollapse}
-          aria-label="Expand Player"
-        >
-          <Music className="h-4 w-4 mr-1" />
-          <span>Expand Player</span>
-        </button>
-      )}
+      <button 
+        className="audio-player-toggle"
+        onClick={toggleCollapse}
+        aria-label={collapsed ? "Expand Player" : "Collapse Player"}
+      >
+        {collapsed ? (
+          <>
+            <Music className="h-4 w-4 mr-1" />
+            <span>Expand Player</span>
+          </>
+        ) : (
+          <>
+            <ChevronDown className="h-4 w-4 mr-1" />
+            <span>Hide Player</span>
+          </>
+        )}
+      </button>
       
-      {/* Full Screen Player */}
       <FullScreenPlayer isOpen={isFullScreen} onClose={closeFullScreen} />
     </>
   );
