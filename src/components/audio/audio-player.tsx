@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useAudioPlayer, Track } from "./audio-player-provider";
 import { Button } from "@/components/ui/button";
@@ -142,6 +143,24 @@ const AudioPlayer = () => {
 
   return (
     <>
+      <button 
+        className="audio-player-toggle"
+        onClick={toggleCollapse}
+        aria-label={collapsed ? "Expand Player" : "Collapse Player"}
+      >
+        {collapsed ? (
+          <>
+            <Music className="h-4 w-4 mr-1" />
+            <span>Expand Player</span>
+          </>
+        ) : (
+          <>
+            <ChevronDown className="h-4 w-4 mr-1" />
+            <span>Hide Player</span>
+          </>
+        )}
+      </button>
+      
       <div className={cn("audio-player-container", collapsed && "collapsed")}>
         <div className="glass-panel p-4 border-t shadow-md animate-fade-in">
           <audio
@@ -368,24 +387,6 @@ const AudioPlayer = () => {
           </div>
         </div>
       </div>
-      
-      <button 
-        className="audio-player-toggle"
-        onClick={toggleCollapse}
-        aria-label={collapsed ? "Expand Player" : "Collapse Player"}
-      >
-        {collapsed ? (
-          <>
-            <Music className="h-4 w-4 mr-1" />
-            <span>Expand Player</span>
-          </>
-        ) : (
-          <>
-            <ChevronDown className="h-4 w-4 mr-1" />
-            <span>Hide Player</span>
-          </>
-        )}
-      </button>
       
       <FullScreenPlayer isOpen={isFullScreen} onClose={closeFullScreen} />
     </>
