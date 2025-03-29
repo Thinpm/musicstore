@@ -1,5 +1,7 @@
 
+import { supabase } from "@/lib/supabase";
 import { apiService } from "./api";
+import { Tables } from "@/types/supabase";
 
 export interface UserProfile {
   id: string;
@@ -26,33 +28,6 @@ export interface UserStorage {
   };
 }
 
-// Mock user data
-const MOCK_USER: UserProfile = {
-  id: "user-123",
-  name: "John Doe",
-  email: "john.doe@example.com",
-  username: "johndoe",
-  bio: "Music enthusiast and content creator",
-  avatarUrl: "/placeholder.svg",
-  storageUsed: 28, // percentage
-  createdAt: "2023-01-15T12:00:00Z",
-  updatedAt: "2023-05-25T15:30:00Z",
-};
-
-// Mock storage data
-const MOCK_STORAGE: UserStorage = {
-  totalSize: 5 * 1024 * 1024 * 1024, // 5GB in bytes
-  usedSize: 1.4 * 1024 * 1024 * 1024, // 1.4GB in bytes
-  audioFiles: {
-    count: 45,
-    size: 3.2 * 1024 * 1024 * 1024, // 3.2GB in bytes
-  },
-  images: {
-    count: 62,
-    size: 0.8 * 1024 * 1024 * 1024, // 0.8GB in bytes
-  },
-};
-
 export interface LoginCredentials {
   email: string;
   password: string;
@@ -65,28 +40,49 @@ export interface RegisterData {
   password: string;
 }
 
+// Helper to transform Supabase user data to our UserProfile format
+const transformUserData = (userData: Tables<'users'>): UserProfile => {
+  return {
+    id: userData.id,
+    name: userData.name || "Unknown User",
+    email: userData.email,
+    username: userData.email.split('@')[0], // Using email prefix as username
+    bio: "", // This could be added to the users table if needed
+    avatarUrl: userData.avatar_url || "/placeholder.svg",
+    storageUsed: 0, // We'll calculate this in the getStorageInfo method
+    createdAt: userData.created_at,
+    updatedAt: userData.updated_at || userData.created_at,
+  };
+};
+
 export const userService = {
   /**
    * Login user with email and password
    */
   login: async (credentials: LoginCredentials): Promise<{ user: UserProfile; token: string } | null> => {
     try {
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        // Mock login, always succeeds with test credentials
-        // In a real app, would validate against correct credentials
-        
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Return mock user data and token
-        return {
-          user: MOCK_USER,
-          token: "mock-jwt-token-xxx-yyy-zzz",
-        };
-      }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: credentials.email,
+        password: credentials.password,
+      });
+
+      if (error) throw new Error(error.message);
       
-      // Actual API implementation
-      return await apiService.post<{ user: UserProfile; token: string }>('/auth/login', credentials);
+      if (!data.user) throw new Error("No user returned from login");
+      
+      // Get user profile data
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+        
+      if (userError) throw new Error(userError.message);
+      
+      return {
+        user: transformUserData(userData),
+        token: data.session!.access_token
+      };
     } catch (error) {
       console.error("Login error:", error);
       return null;
@@ -98,31 +94,36 @@ export const userService = {
    */
   register: async (data: RegisterData): Promise<{ user: UserProfile; token: string } | null> => {
     try {
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        // Mock registration, always succeeds
-        // In a real app, would check for existing emails, etc.
-        
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Return mocked user with the provided data
-        const newUser: UserProfile = {
-          ...MOCK_USER,
-          name: data.name,
-          email: data.email,
-          username: data.username,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        
-        return {
-          user: newUser,
-          token: "mock-jwt-token-xxx-yyy-zzz",
-        };
-      }
+      // Register with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+      });
+
+      if (authError) throw new Error(authError.message);
       
-      // Actual API implementation
-      return await apiService.post<{ user: UserProfile; token: string }>('/auth/register', data);
+      if (!authData.user) throw new Error("No user returned from registration");
+      
+      // Create user profile in our users table
+      const { data: userData, error: profileError } = await supabase
+        .from('users')
+        .insert([
+          {
+            id: authData.user.id,
+            email: data.email,
+            name: data.name,
+            avatar_url: null,
+          }
+        ])
+        .select()
+        .single();
+        
+      if (profileError) throw new Error(profileError.message);
+      
+      return {
+        user: transformUserData(userData),
+        token: authData.session!.access_token
+      };
     } catch (error) {
       console.error("Registration error:", error);
       return null;
@@ -134,15 +135,21 @@ export const userService = {
    */
   getCurrentUser: async (): Promise<UserProfile | null> => {
     try {
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        return MOCK_USER;
-      }
+      // Get current session
+      const { data: session } = await supabase.auth.getSession();
       
-      // Actual API implementation
-      return await apiService.get<UserProfile>('/user/profile');
+      if (!session.session) return null;
+      
+      // Get user profile from our users table
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.session.user.id)
+        .single();
+        
+      if (error) throw new Error(error.message);
+      
+      return transformUserData(userData);
     } catch (error) {
       console.error("Error fetching user profile:", error);
       return null;
@@ -154,20 +161,28 @@ export const userService = {
    */
   updateProfile: async (data: Partial<UserProfile>): Promise<UserProfile | null> => {
     try {
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Return updated user
-        return {
-          ...MOCK_USER,
-          ...data,
-          updatedAt: new Date().toISOString(),
-        };
-      }
+      // Get current user ID
+      const { data: session } = await supabase.auth.getSession();
       
-      // Actual API implementation
-      return await apiService.put<UserProfile>('/user/profile', data);
+      if (!session.session) throw new Error("User not authenticated");
+      
+      const userId = session.session.user.id;
+      
+      // Update user profile
+      const { data: userData, error } = await supabase
+        .from('users')
+        .update({
+          name: data.name,
+          avatar_url: data.avatarUrl,
+          // Add other fields as needed
+        })
+        .eq('id', userId)
+        .select()
+        .single();
+        
+      if (error) throw new Error(error.message);
+      
+      return transformUserData(userData);
     } catch (error) {
       console.error("Error updating user profile:", error);
       return null;
@@ -179,15 +194,47 @@ export const userService = {
    */
   getStorageInfo: async (): Promise<UserStorage | null> => {
     try {
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        return MOCK_STORAGE;
-      }
+      // Get current session
+      const { data: session } = await supabase.auth.getSession();
       
-      // Actual API implementation
-      return await apiService.get<UserStorage>('/user/storage');
+      if (!session.session) throw new Error("User not authenticated");
+      
+      const userId = session.session.user.id;
+      
+      // Get user's songs count and calculate size
+      const { data: songsData, error: songsError } = await supabase
+        .from('songs')
+        .select('*')
+        .eq('user_id', userId);
+        
+      if (songsError) throw new Error(songsError.message);
+      
+      // This is an estimation - in a real app you would store the file size in the songs table
+      const songsTotalSize = songsData.length * 5 * 1024 * 1024; // Assuming average 5MB per song
+      
+      // For this example, we'll assume all files in storage are either audio or images
+      // In a real application, you might want to query actual storage usage from Supabase storage
+      
+      // Placeholder values for image counts - in a real app, query this from a separate table
+      const imagesCount = 10;
+      const imagesTotalSize = imagesCount * 500 * 1024; // Assuming average 500KB per image
+      
+      // Calculate total usage
+      const totalSize = 5 * 1024 * 1024 * 1024; // 5GB quota
+      const usedSize = songsTotalSize + imagesTotalSize;
+      
+      return {
+        totalSize,
+        usedSize,
+        audioFiles: {
+          count: songsData.length,
+          size: songsTotalSize,
+        },
+        images: {
+          count: imagesCount,
+          size: imagesTotalSize,
+        }
+      };
     } catch (error) {
       console.error("Error fetching storage info:", error);
       return null;
@@ -202,19 +249,25 @@ export const userService = {
     newPassword: string
   ): Promise<boolean> => {
     try {
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Simulate success
-        return true;
-      }
+      // Get current user email
+      const { data: session } = await supabase.auth.getSession();
       
-      // Actual API implementation
-      await apiService.post('/user/change-password', {
-        currentPassword,
-        newPassword,
+      if (!session.session) throw new Error("User not authenticated");
+      
+      // First verify current password by trying to sign in
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: session.session.user.email!,
+        password: currentPassword,
       });
+      
+      if (verifyError) throw new Error("Current password is incorrect");
+      
+      // Update password
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      
+      if (error) throw new Error(error.message);
       
       return true;
     } catch (error) {
@@ -228,15 +281,14 @@ export const userService = {
    */
   logout: async (): Promise<boolean> => {
     try {
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) throw new Error(error.message);
+      
       // Remove token from localStorage
       localStorage.removeItem("auth_token");
       
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        return true;
-      }
-      
-      // Actual API implementation - may or may not be needed depending on auth strategy
-      await apiService.post('/auth/logout', {});
       return true;
     } catch (error) {
       console.error("Error logging out:", error);

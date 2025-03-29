@@ -1,58 +1,8 @@
 
+import { supabase } from "@/lib/supabase";
 import { apiService } from "./api";
 import { Track } from "@/components/audio/audio-player-provider";
-
-// Mock data để sử dụng khi phát triển
-const MOCK_TRACKS: Track[] = [
-  {
-    id: "1",
-    title: "Digital Resonance",
-    artist: "Electronic Waves",
-    duration: 243,
-    url: "/sample.mp3",
-    cover: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTF8fG11c2ljfGVufDB8fDB8fHww",
-  },
-  {
-    id: "2",
-    title: "Ambient Reflections",
-    artist: "Chill Horizon",
-    duration: 312,
-    url: "/sample.mp3",
-    cover: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8bXVzaWN8ZW58MHx8MHx8fDA%3D",
-  },
-  {
-    id: "3",
-    title: "Urban Echoes",
-    artist: "City Pulse",
-    duration: 198,
-    url: "/sample.mp3",
-    cover: "https://images.unsplash.com/photo-1494232410401-ad00d5433cfa?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8N3x8bXVzaWN8ZW58MHx8MHx8fDA%3D",
-  },
-  {
-    id: "4",
-    title: "Night Drive",
-    artist: "Midnight Cruisers",
-    duration: 274,
-    url: "/sample.mp3",
-    cover: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OHx8bXVzaWN8ZW58MHx8MHx8fDA%3D",
-  },
-  {
-    id: "5",
-    title: "Sunrise Memories",
-    artist: "Dawn Collective",
-    duration: 226,
-    url: "/sample.mp3",
-    cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fG11c2ljfGVufDB8fDB8fHww",
-  },
-  {
-    id: "6",
-    title: "Sunset Grooves",
-    artist: "Coastal Rhythms",
-    duration: 258,
-    url: "/sample.mp3",
-    cover: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fG11c2ljfGVufDB8fDB8fHww",
-  },
-];
+import { Tables } from "@/types/supabase";
 
 export interface TrackQuery {
   startsWith?: string;
@@ -62,56 +12,60 @@ export interface TrackQuery {
   sortOrder?: 'asc' | 'desc';
 }
 
+// Helper to transform Supabase song data to our Track format
+const transformTrackData = (songData: Tables<'songs'>): Track => {
+  return {
+    id: songData.id,
+    title: songData.title,
+    artist: songData.artist || "Unknown Artist",
+    duration: songData.duration || 0,
+    url: songData.url,
+    cover: songData.cover_url || "/placeholder.svg",
+  };
+};
+
 export const trackService = {
   /**
    * Fetch all tracks with optional filtering
    */
   getAllTracks: async (query: TrackQuery = {}): Promise<Track[]> => {
-    // MOCK implementation - replace with actual API call when backend is ready
     try {
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        // Filter tracks by first letter if specified
-        let filteredTracks = [...MOCK_TRACKS];
-        
-        if (query.startsWith) {
-          filteredTracks = filteredTracks.filter(track => 
-            track.title.toLowerCase().startsWith(query.startsWith!.toLowerCase())
-          );
-        }
-        
-        // Sort tracks if specified
-        if (query.sortBy) {
-          filteredTracks.sort((a, b) => {
-            const aValue = a[query.sortBy as keyof Track];
-            const bValue = b[query.sortBy as keyof Track];
-            
-            if (typeof aValue === 'string' && typeof bValue === 'string') {
-              return query.sortOrder === 'desc' 
-                ? bValue.localeCompare(aValue) 
-                : aValue.localeCompare(bValue);
-            }
-            
-            return 0;
-          });
-        }
-        
-        // Apply pagination if specified
-        if (query.limit !== undefined && query.offset !== undefined) {
-          filteredTracks = filteredTracks.slice(query.offset, query.offset + query.limit);
-        }
-        
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        return filteredTracks;
+      let tracksQuery = supabase
+        .from('songs')
+        .select('*');
+      
+      // Filter by starting letter if provided
+      if (query.startsWith) {
+        tracksQuery = tracksQuery.ilike('title', `${query.startsWith}%`);
       }
       
-      // Actual API implementation
-      return await apiService.get<Track[]>('/tracks', {
-        headers: {
-          // Add any custom headers here if needed
-        },
-      });
+      // Apply sorting if provided
+      if (query.sortBy) {
+        tracksQuery = tracksQuery.order(query.sortBy, { 
+          ascending: query.sortOrder !== 'desc' 
+        });
+      } else {
+        // Default sort by title ascending
+        tracksQuery = tracksQuery.order('title', { ascending: true });
+      }
+      
+      // Apply pagination if provided
+      if (query.limit !== undefined) {
+        tracksQuery = tracksQuery.limit(query.limit);
+      }
+      
+      if (query.offset !== undefined) {
+        tracksQuery = tracksQuery.range(
+          query.offset, 
+          query.offset + (query.limit || 10) - 1
+        );
+      }
+      
+      const { data, error } = await tracksQuery;
+      
+      if (error) throw new Error(error.message);
+      
+      return (data || []).map(transformTrackData);
     } catch (error) {
       console.error("Error fetching tracks:", error);
       return [];
@@ -130,16 +84,15 @@ export const trackService = {
    */
   getTrackById: async (id: string): Promise<Track | null> => {
     try {
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        const track = MOCK_TRACKS.find(t => t.id === id);
-        
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        return track || null;
-      }
+      const { data, error } = await supabase
+        .from('songs')
+        .select('*')
+        .eq('id', id)
+        .single();
       
-      return await apiService.get<Track>(`/tracks/${id}`);
+      if (error) throw new Error(error.message);
+      
+      return transformTrackData(data);
     } catch (error) {
       console.error(`Error fetching track ${id}:`, error);
       return null;
@@ -155,78 +108,99 @@ export const trackService = {
     onProgressUpdate?: (progress: number) => void
   ): Promise<Track | null> => {
     try {
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        // Simulate successful upload with mock data and progress updates
-        const newId = (Math.max(...MOCK_TRACKS.map(t => parseInt(t.id))) + 1).toString();
-        
-        // Get audio duration
-        let duration = 180; // Default 3 minutes
-        
-        try {
-          // Try to get actual duration if browser supports it
-          const audio = new Audio();
-          audio.src = URL.createObjectURL(file);
-          await new Promise((resolve) => {
-            audio.onloadedmetadata = () => {
-              duration = Math.round(audio.duration);
-              resolve(duration);
-            };
-          });
-        } catch (err) {
-          console.warn("Could not get audio duration", err);
-        }
-        
-        // Create mock track
-        const newTrack: Track = {
-          id: newId,
-          title: metadata.title || file.name.replace(/\.[^/.]+$/, ""), // Remove extension
-          artist: metadata.artist || "Unknown Artist",
-          duration: duration,
-          url: URL.createObjectURL(file), // Local URL for preview
-          cover: metadata.cover || "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTF8fG11c2ljfGVufDB8fDB8fHww",
-        };
-        
-        // Simulate upload progress
-        let progress = 0;
-        const interval = setInterval(() => {
-          progress += 10;
-          if (onProgressUpdate) {
-            onProgressUpdate(progress);
-          }
-          if (progress >= 100) {
-            clearInterval(interval);
-          }
-        }, 300);
-        
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        return newTrack;
+      // Get current user
+      const { data: session } = await supabase.auth.getSession();
+      
+      if (!session.session) throw new Error("User not authenticated");
+      
+      const userId = session.session.user.id;
+      
+      // Create a unique file path in storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}/${Date.now()}.${fileExt}`;
+      const filePath = `audio/${fileName}`;
+      
+      // Upload audio file to Supabase Storage
+      let currentProgress = 0;
+      
+      // Manually handle progress updates since Supabase doesn't support it directly
+      if (onProgressUpdate) {
+        onProgressUpdate(10); // Starting progress
+        currentProgress = 10;
       }
       
-      // Real implementation with FormData for file upload
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('metadata', JSON.stringify(metadata));
+      const { data: storageData, error: storageError } = await supabase
+        .storage
+        .from('songs')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
       
-      // Set up progress tracking for real API calls
-      const options: RequestInit & { 
-        headers: Record<string, string>,
-        onUploadProgress?: (progressEvent: { loaded: number; total: number }) => void 
-      } = {
-        method: 'POST',
-        headers: {},
-        // This would be used if we were using axios or a similar library
-        // The fetch API doesn't support progress tracking natively
-        onUploadProgress: (progressEvent) => {
-          if (onProgressUpdate && progressEvent.total) {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            onProgressUpdate(percentCompleted);
-          }
-        }
-      };
+      if (storageError) throw new Error(storageError.message);
       
-      return await apiService.post<Track>('/tracks/upload', formData, options);
+      if (onProgressUpdate) {
+        onProgressUpdate(70); // File uploaded, now metadata
+        currentProgress = 70;
+      }
+      
+      // Get public URL for the file
+      const { data: urlData } = supabase
+        .storage
+        .from('songs')
+        .getPublicUrl(filePath);
+      
+      // Get audio duration - attempt to get it client-side
+      let duration = 0;
+      try {
+        const audio = new Audio();
+        audio.src = URL.createObjectURL(file);
+        await new Promise((resolve) => {
+          audio.onloadedmetadata = () => {
+            duration = Math.round(audio.duration);
+            resolve(duration);
+          };
+          
+          // Fallback if metadata loading fails
+          setTimeout(() => {
+            if (duration === 0) {
+              duration = 180; // Default 3 minutes
+              resolve(duration);
+            }
+          }, 3000);
+        });
+      } catch (err) {
+        console.warn("Could not get audio duration", err);
+        duration = 180; // Default 3 minutes as fallback
+      }
+      
+      if (onProgressUpdate) {
+        onProgressUpdate(85); // Creating database entry
+        currentProgress = 85;
+      }
+      
+      // Create entry in the songs table
+      const { data: songData, error: songError } = await supabase
+        .from('songs')
+        .insert([{
+          title: metadata.title,
+          artist: metadata.artist,
+          duration: duration,
+          url: urlData.publicUrl,
+          cover_url: metadata.cover,
+          user_id: userId,
+          is_public: true
+        }])
+        .select()
+        .single();
+      
+      if (songError) throw new Error(songError.message);
+      
+      if (onProgressUpdate) {
+        onProgressUpdate(100); // Complete
+      }
+      
+      return transformTrackData(songData);
     } catch (error) {
       console.error("Error uploading track:", error);
       return null;
@@ -238,13 +212,49 @@ export const trackService = {
    */
   deleteTrack: async (id: string): Promise<boolean> => {
     try {
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        // Simulate track deletion
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return true;
+      // First, get the track to find the storage path
+      const { data: track, error: getError } = await supabase
+        .from('songs')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (getError) throw new Error(getError.message);
+      
+      // Delete from the songs table
+      const { error: deleteError } = await supabase
+        .from('songs')
+        .delete()
+        .eq('id', id);
+      
+      if (deleteError) throw new Error(deleteError.message);
+      
+      // Extract the file path from the URL and delete from storage
+      // This assumes the URL has a pattern we can parse to get the storage path
+      // This is a simplified approach and may need adjustment based on your URL structure
+      try {
+        const url = new URL(track.url);
+        const pathMatch = url.pathname.match(/\/songs\/(.+)$/);
+        
+        if (pathMatch && pathMatch[1]) {
+          const storagePath = decodeURIComponent(pathMatch[1]);
+          
+          // Delete from storage
+          const { error: storageError } = await supabase
+            .storage
+            .from('songs')
+            .remove([storagePath]);
+          
+          if (storageError) {
+            console.error("Error removing file from storage:", storageError);
+            // We continue even if storage deletion fails - the DB record is gone
+          }
+        }
+      } catch (storageError) {
+        console.error("Error parsing URL or deleting from storage:", storageError);
+        // We continue even if storage deletion fails - the DB record is gone
       }
       
-      await apiService.delete(`/tracks/${id}`);
       return true;
     } catch (error) {
       console.error(`Error deleting track ${id}:`, error);

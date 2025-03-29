@@ -1,8 +1,6 @@
 
-/**
- * Base API configuration and utilities
- */
 import { toast } from "@/components/ui/use-toast";
+import { supabase } from "@/lib/supabase";
 
 // API base URL from environment
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
@@ -38,6 +36,17 @@ interface ExtendedRequestInit extends RequestInit {
   onUploadProgress?: (progressEvent: { loaded: number; total: number }) => void;
 }
 
+// Get the current Supabase session token
+const getAuthToken = async (): Promise<string | null> => {
+  // First check localStorage for backwards compatibility
+  const localToken = localStorage.getItem("auth_token");
+  if (localToken) return localToken;
+  
+  // If not in localStorage, try to get from Supabase session
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token || null;
+};
+
 // Generic fetch wrapper with error handling
 export async function apiFetch<T>(
   endpoint: string,
@@ -51,7 +60,7 @@ export async function apiFetch<T>(
     };
 
     // Add auth token if available
-    const token = localStorage.getItem("auth_token");
+    const token = await getAuthToken();
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
     }

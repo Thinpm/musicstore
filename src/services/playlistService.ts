@@ -1,5 +1,8 @@
-import { apiService } from "./api";
+
+import { supabase } from "@/lib/supabase";
 import { Track } from "@/components/audio/audio-player-provider";
+import { Tables } from "@/types/supabase";
+import { trackService } from "./trackService";
 
 // Playlist interface
 export interface Playlist {
@@ -11,128 +14,20 @@ export interface Playlist {
   tracks?: Track[];
 }
 
-// Mock data
-const MOCK_PLAYLISTS: Playlist[] = [
-  {
-    id: "1",
-    title: "Summer Vibes",
-    description: "Perfect tracks for sunny days",
-    coverUrl: "https://images.unsplash.com/photo-1534196511436-921a4e99f297?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8c3VtbWVyfGVufDB8fDB8fHww",
-    trackCount: 3,
-  },
-  {
-    id: "2",
-    title: "Chill Lofi Beats",
-    description: "Relaxing background music",
-    coverUrl: "https://images.unsplash.com/photo-1482442120256-9c4a5ab72d4c?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fGNoaWxsfGVufDB8fDB8fHww",
-    trackCount: 2,
-  },
-  {
-    id: "3",
-    title: "Workout Mix",
-    description: "High energy tracks for exercise",
-    coverUrl: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8d29ya291dHxlbnwwfHwwfHx8MA%3D%3D",
-    trackCount: 3,
-  },
-  {
-    id: "4",
-    title: "Focus & Study",
-    description: "Concentration enhancing sounds",
-    coverUrl: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8c3R1ZHl8ZW58MHx8MHx8fDA%3D",
-    trackCount: 2,
-  },
-];
-
-// Mock tracks data for each playlist
-const MOCK_PLAYLIST_TRACKS: Record<string, Track[]> = {
-  "1": [
-    {
-      id: "101",
-      title: "Beach Sunrise",
-      artist: "Ocean Waves",
-      duration: 217,
-      url: "/sample.mp3",
-      cover: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8YmVhY2h8ZW58MHx8MHx8fDA%3D",
-    },
-    {
-      id: "102",
-      title: "Tropical Breeze",
-      artist: "Island Sounds",
-      duration: 198,
-      url: "/sample.mp3",
-      cover: "https://images.unsplash.com/photo-1519046904884-53103b34b206?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTJ8fGJlYWNofGVufDB8fDB8fHww",
-    },
-    {
-      id: "103",
-      title: "Summer Nights",
-      artist: "Coastal Rhythms",
-      duration: 245,
-      url: "/sample.mp3",
-      cover: "https://images.unsplash.com/photo-1520454974749-611b7248ffdb?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8c3VtbWVyJTIwbmlnaHR8ZW58MHx8MHx8fDA%3D",
-    },
-  ],
-  "2": [
-    {
-      id: "201",
-      title: "Midnight Coffee",
-      artist: "Chill Hop",
-      duration: 182,
-      url: "/sample.mp3",
-      cover: "https://images.unsplash.com/photo-1497935586047-9242eb4fc795?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTJ8fGNvZmZlZSUyMG1pZG5pZ2h0fGVufDB8fDB8fHww",
-    },
-    {
-      id: "202",
-      title: "Rainy Day",
-      artist: "Lo-Fi Mood",
-      duration: 214,
-      url: "/sample.mp3",
-      cover: "https://images.unsplash.com/photo-1501691223387-dd0500403074?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8cmFpbnklMjBkYXl8ZW58MHx8MHx8fDA%3D",
-    },
-  ],
-  "3": [
-    {
-      id: "301",
-      title: "Power Up",
-      artist: "Fitness Beat",
-      duration: 168,
-      url: "/sample.mp3",
-      cover: "https://images.unsplash.com/photo-1517344368193-41552b6ad3f5?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Z3ltfGVufDB8fDB8fHww",
-    },
-    {
-      id: "302",
-      title: "Push Limits",
-      artist: "Workout Mix",
-      duration: 194,
-      url: "/sample.mp3",
-      cover: "https://images.unsplash.com/photo-1574680178050-55c6a6a96e0a?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8Z3ltfGVufDB8fDB8fHww",
-    },
-    {
-      id: "303",
-      title: "Energy Rush",
-      artist: "Active Beats",
-      duration: 176,
-      url: "/sample.mp3",
-      cover: "https://images.unsplash.com/photo-1594737625785-a6cbdabd333c?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fGd5bXxlbnwwfHwwfHx8MA%3D%3D",
-    },
-  ],
-  "4": [
-    {
-      id: "401",
-      title: "Deep Focus",
-      artist: "Study Sessions",
-      duration: 236,
-      url: "/sample.mp3",
-      cover: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8c3R1ZHl8ZW58MHx8MHx8fDA%3D",
-    },
-    {
-      id: "402",
-      title: "Concentration",
-      artist: "Mind Flow",
-      duration: 252,
-      url: "/sample.mp3",
-      cover: "https://images.unsplash.com/photo-1532012197267-da84d127e765?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8c3R1ZHl8ZW58MHx8MHx8fDA%3D",
-    },
-  ],
+// Helper to transform Supabase playlist data to our Playlist format
+const transformPlaylistData = (
+  playlistData: Tables<'playlists'>, 
+  trackCount = 0,
+  tracks?: Track[]
+): Playlist => {
+  return {
+    id: playlistData.id,
+    title: playlistData.name,
+    description: playlistData.description || "",
+    coverUrl: playlistData.cover_url || "/placeholder.svg",
+    trackCount: trackCount,
+    tracks: tracks,
+  };
 };
 
 export interface PlaylistQuery {
@@ -149,49 +44,66 @@ export const playlistService = {
    */
   getAllPlaylists: async (query: PlaylistQuery = {}): Promise<Playlist[]> => {
     try {
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        // Filter playlists by first letter if specified
-        let filteredPlaylists = [...MOCK_PLAYLISTS];
-        
-        if (query.startsWith) {
-          filteredPlaylists = filteredPlaylists.filter(playlist => 
-            playlist.title.toLowerCase().startsWith(query.startsWith!.toLowerCase())
-          );
-        }
-        
-        // Sort playlists if specified
-        if (query.sortBy) {
-          filteredPlaylists.sort((a, b) => {
-            const aValue = a[query.sortBy as keyof Playlist];
-            const bValue = b[query.sortBy as keyof Playlist];
-            
-            if (typeof aValue === 'string' && typeof bValue === 'string') {
-              return query.sortOrder === 'desc' 
-                ? bValue.localeCompare(aValue) 
-                : aValue.localeCompare(bValue);
-            }
-            
-            return 0;
-          });
-        }
-        
-        // Apply pagination if specified
-        if (query.limit !== undefined && query.offset !== undefined) {
-          filteredPlaylists = filteredPlaylists.slice(query.offset, query.offset + query.limit);
-        }
-        
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        return filteredPlaylists;
+      // Get current user
+      const { data: session } = await supabase.auth.getSession();
+      
+      if (!session.session) throw new Error("User not authenticated");
+      
+      const userId = session.session.user.id;
+      
+      // Query playlists
+      let playlistsQuery = supabase
+        .from('playlists')
+        .select('*')
+        .eq('user_id', userId);
+      
+      // Filter by starting letter if provided
+      if (query.startsWith) {
+        playlistsQuery = playlistsQuery.ilike('name', `${query.startsWith}%`);
       }
       
-      // Actual API implementation
-      return await apiService.get<Playlist[]>('/playlists', {
-        headers: {
-          // Add any custom headers here if needed
-        },
-      });
+      // Apply sorting if provided
+      if (query.sortBy) {
+        playlistsQuery = playlistsQuery.order(query.sortBy, { 
+          ascending: query.sortOrder !== 'desc' 
+        });
+      } else {
+        // Default sort by name ascending
+        playlistsQuery = playlistsQuery.order('name', { ascending: true });
+      }
+      
+      // Apply pagination if provided
+      if (query.limit !== undefined) {
+        playlistsQuery = playlistsQuery.limit(query.limit);
+      }
+      
+      if (query.offset !== undefined) {
+        playlistsQuery = playlistsQuery.range(
+          query.offset, 
+          query.offset + (query.limit || 10) - 1
+        );
+      }
+      
+      const { data: playlists, error: playlistsError } = await playlistsQuery;
+      
+      if (playlistsError) throw new Error(playlistsError.message);
+      
+      // For each playlist, get the track count
+      const playlistsWithCounts = await Promise.all((playlists || []).map(async (playlist) => {
+        const { count, error: countError } = await supabase
+          .from('playlist_songs')
+          .select('*', { count: 'exact', head: true })
+          .eq('playlist_id', playlist.id);
+        
+        if (countError) {
+          console.error(`Error getting track count for playlist ${playlist.id}:`, countError);
+          return transformPlaylistData(playlist, 0);
+        }
+        
+        return transformPlaylistData(playlist, count || 0);
+      }));
+      
+      return playlistsWithCounts;
     } catch (error) {
       console.error("Error fetching playlists:", error);
       return [];
@@ -210,31 +122,69 @@ export const playlistService = {
    */
   getPlaylistById: async (id: string, includeTracks = false): Promise<Playlist | null> => {
     try {
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        const playlist = MOCK_PLAYLISTS.find(p => p.id === id);
-        
-        if (!playlist) return null;
-        
-        // Clone to avoid modifying the original
-        const result = { ...playlist };
-        
-        // Include tracks if requested
-        if (includeTracks) {
-          result.tracks = MOCK_PLAYLIST_TRACKS[id] || [];
-        }
-        
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        return result;
+      // Get the playlist
+      const { data: playlist, error: playlistError } = await supabase
+        .from('playlists')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (playlistError) throw new Error(playlistError.message);
+      
+      // Get track count
+      const { count, error: countError } = await supabase
+        .from('playlist_songs')
+        .select('*', { count: 'exact', head: true })
+        .eq('playlist_id', id);
+      
+      if (countError) throw new Error(countError.message);
+      
+      if (!includeTracks) {
+        return transformPlaylistData(playlist, count || 0);
       }
       
-      // Actual API implementation
-      const endpoint = includeTracks 
-        ? `/playlists/${id}?includeTracks=true` 
-        : `/playlists/${id}`;
-        
-      return await apiService.get<Playlist>(endpoint);
+      // Get track IDs in this playlist
+      const { data: playlistSongs, error: tracksError } = await supabase
+        .from('playlist_songs')
+        .select('song_id')
+        .eq('playlist_id', id)
+        .order('position', { ascending: true, nullsFirst: false });
+      
+      if (tracksError) throw new Error(tracksError.message);
+      
+      if (!playlistSongs || playlistSongs.length === 0) {
+        return transformPlaylistData(playlist, 0, []);
+      }
+      
+      // Get the actual track data for each track ID
+      const trackIds = playlistSongs.map(item => item.song_id);
+      
+      const { data: songs, error: songsError } = await supabase
+        .from('songs')
+        .select('*')
+        .in('id', trackIds);
+      
+      if (songsError) throw new Error(songsError.message);
+      
+      // Transform songs to our Track format and maintain playlist order
+      const tracks: Track[] = [];
+      
+      // Map tracks in the correct order
+      playlistSongs.forEach(playlistSong => {
+        const song = songs?.find(s => s.id === playlistSong.song_id);
+        if (song) {
+          tracks.push({
+            id: song.id,
+            title: song.title,
+            artist: song.artist || "Unknown Artist",
+            duration: song.duration || 0,
+            url: song.url,
+            cover: song.cover_url || "/placeholder.svg"
+          });
+        }
+      });
+      
+      return transformPlaylistData(playlist, tracks.length, tracks);
     } catch (error) {
       console.error(`Error fetching playlist ${id}:`, error);
       return null;
@@ -246,27 +196,29 @@ export const playlistService = {
    */
   createPlaylist: async (playlistData: Omit<Playlist, 'id' | 'trackCount'>): Promise<Playlist | null> => {
     try {
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        // Create a new mock playlist with a unique ID
-        const newId = (Math.max(...MOCK_PLAYLISTS.map(p => parseInt(p.id))) + 1).toString();
-        
-        const newPlaylist: Playlist = {
-          id: newId,
-          title: playlistData.title,
-          description: playlistData.description,
-          coverUrl: playlistData.coverUrl || "/placeholder.svg",
-          trackCount: 0,
-          tracks: [],
-        };
-        
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        return newPlaylist;
-      }
+      // Get current user
+      const { data: session } = await supabase.auth.getSession();
       
-      // Actual API implementation
-      return await apiService.post<Playlist>('/playlists', playlistData);
+      if (!session.session) throw new Error("User not authenticated");
+      
+      const userId = session.session.user.id;
+      
+      // Create the playlist
+      const { data, error } = await supabase
+        .from('playlists')
+        .insert([{
+          name: playlistData.title,
+          description: playlistData.description,
+          cover_url: playlistData.coverUrl,
+          user_id: userId,
+          is_public: true
+        }])
+        .select()
+        .single();
+      
+      if (error) throw new Error(error.message);
+      
+      return transformPlaylistData(data, 0, []);
     } catch (error) {
       console.error("Error creating playlist:", error);
       return null;
@@ -278,20 +230,29 @@ export const playlistService = {
    */
   updatePlaylist: async (id: string, playlistData: Partial<Omit<Playlist, 'id'>>): Promise<Playlist | null> => {
     try {
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        // Simulate updating a playlist
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const playlist = MOCK_PLAYLISTS.find(p => p.id === id);
-        if (!playlist) return null;
-        
-        const updatedPlaylist = { ...playlist, ...playlistData };
-        
-        return updatedPlaylist;
-      }
+      // Update the playlist
+      const { data, error } = await supabase
+        .from('playlists')
+        .update({
+          name: playlistData.title,
+          description: playlistData.description,
+          cover_url: playlistData.coverUrl,
+        })
+        .eq('id', id)
+        .select()
+        .single();
       
-      // Actual API implementation
-      return await apiService.put<Playlist>(`/playlists/${id}`, playlistData);
+      if (error) throw new Error(error.message);
+      
+      // Get track count
+      const { count, error: countError } = await supabase
+        .from('playlist_songs')
+        .select('*', { count: 'exact', head: true })
+        .eq('playlist_id', id);
+      
+      if (countError) throw new Error(countError.message);
+      
+      return transformPlaylistData(data, count || 0);
     } catch (error) {
       console.error(`Error updating playlist ${id}:`, error);
       return null;
@@ -303,14 +264,14 @@ export const playlistService = {
    */
   deletePlaylist: async (id: string): Promise<boolean> => {
     try {
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        // Simulate playlist deletion
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return true;
-      }
+      // Delete the playlist
+      const { error } = await supabase
+        .from('playlists')
+        .delete()
+        .eq('id', id);
       
-      // Actual API implementation
-      await apiService.delete(`/playlists/${id}`);
+      if (error) throw new Error(error.message);
+      
       return true;
     } catch (error) {
       console.error(`Error deleting playlist ${id}:`, error);
@@ -323,14 +284,29 @@ export const playlistService = {
    */
   addTrackToPlaylist: async (playlistId: string, trackId: string): Promise<boolean> => {
     try {
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        // Simulate adding track to playlist
-        await new Promise(resolve => setTimeout(resolve, 300));
-        return true;
-      }
+      // Get the current highest position
+      const { data: positions, error: posError } = await supabase
+        .from('playlist_songs')
+        .select('position')
+        .eq('playlist_id', playlistId)
+        .order('position', { ascending: false })
+        .limit(1);
       
-      // Actual API implementation
-      await apiService.post(`/playlists/${playlistId}/tracks`, { trackId });
+      const nextPosition = positions && positions.length > 0 && positions[0].position !== null
+        ? (positions[0].position + 1)
+        : 1;
+      
+      // Add the track to the playlist
+      const { error } = await supabase
+        .from('playlist_songs')
+        .insert([{
+          playlist_id: playlistId,
+          song_id: trackId,
+          position: nextPosition
+        }]);
+      
+      if (error) throw new Error(error.message);
+      
       return true;
     } catch (error) {
       console.error(`Error adding track ${trackId} to playlist ${playlistId}:`, error);
@@ -343,14 +319,15 @@ export const playlistService = {
    */
   removeTrackFromPlaylist: async (playlistId: string, trackId: string): Promise<boolean> => {
     try {
-      if (import.meta.env.VITE_USE_MOCK_DATA === "true") {
-        // Simulate removing track from playlist
-        await new Promise(resolve => setTimeout(resolve, 300));
-        return true;
-      }
+      // Remove the track from the playlist
+      const { error } = await supabase
+        .from('playlist_songs')
+        .delete()
+        .eq('playlist_id', playlistId)
+        .eq('song_id', trackId);
       
-      // Actual API implementation
-      await apiService.delete(`/playlists/${playlistId}/tracks/${trackId}`);
+      if (error) throw new Error(error.message);
+      
       return true;
     } catch (error) {
       console.error(`Error removing track ${trackId} from playlist ${playlistId}:`, error);
