@@ -14,11 +14,11 @@ const Layout = () => {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex flex-col flex-1 w-full overflow-hidden">
         <Navbar />
         <main 
           className={cn(
-            "flex-1 overflow-auto p-4 md:p-6 transition-all duration-300"
+            "flex-1 overflow-auto p-3 md:p-6 transition-all duration-300"
           )}
         >
           <div className="container mx-auto max-w-7xl">

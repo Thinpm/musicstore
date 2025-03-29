@@ -53,7 +53,8 @@ const Sidebar = () => {
     <div 
       className={cn(
         "glass-panel flex flex-col h-full transition-all duration-300 ease-in-out overflow-hidden z-20 border-r",
-        expanded ? "w-64" : "w-20"
+        expanded ? "w-64" : "w-16",
+        "fixed md:relative left-0 top-0 bottom-0"
       )}
     >
       <div className="flex items-center justify-between p-4 border-b">
@@ -68,7 +69,7 @@ const Sidebar = () => {
             <span className="text-white font-bold">S</span>
           </div>
           {expanded && (
-            <span className="font-semibold text-lg tracking-tight animate-fade-in">
+            <span className="font-semibold text-lg tracking-tight truncate animate-fade-in">
               SoundStreamline
             </span>
           )}
@@ -87,7 +88,7 @@ const Sidebar = () => {
         </Button>
       </div>
       
-      <div className="flex flex-col flex-1 py-4 px-2 space-y-1">
+      <div className="flex flex-col flex-1 py-4 px-2 space-y-1 overflow-y-auto">
         {menuItems.map((item) => (
           <Button
             key={item.path}
@@ -99,12 +100,12 @@ const Sidebar = () => {
             onClick={() => navigate(item.path)}
           >
             {item.icon}
-            {expanded && <span className="ml-2">{item.title}</span>}
+            {expanded && <span className="ml-2 truncate">{item.title}</span>}
           </Button>
         ))}
       </div>
       
-      <div className="p-4 border-t">
+      <div className="p-3 border-t">
         <div className="flex flex-col space-y-2">
           <Button 
             variant="ghost" 
@@ -116,12 +117,12 @@ const Sidebar = () => {
             onClick={toggleTheme}
           >
             {theme === "dark" ? (
-              <Sun className="h-5 w-5" />
+              <Sun className="h-5 w-5 flex-shrink-0" />
             ) : (
-              <Moon className="h-5 w-5" />
+              <Moon className="h-5 w-5 flex-shrink-0" />
             )}
             {expanded && (
-              <span className="ml-2">
+              <span className="ml-2 truncate">
                 {theme === "dark" ? "Light Mode" : "Dark Mode"}
               </span>
             )}
@@ -135,8 +136,8 @@ const Sidebar = () => {
             )}
             onClick={() => navigate("/login")}
           >
-            <LogOut className="h-5 w-5" />
-            {expanded && <span className="ml-2">Logout</span>}
+            <LogOut className="h-5 w-5 flex-shrink-0" />
+            {expanded && <span className="ml-2 truncate">Logout</span>}
           </Button>
         </div>
       </div>

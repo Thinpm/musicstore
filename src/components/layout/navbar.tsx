@@ -49,7 +49,7 @@ const Navbar = () => {
   };
 
   return (
-    <div className="glass-panel border-b px-4 py-2 flex items-center justify-between h-16 z-10">
+    <div className="glass-panel border-b px-3 sm:px-4 py-2 flex items-center justify-between h-16 z-10">
       <div className="flex items-center">
         <Button 
           variant="ghost" 
@@ -59,17 +59,17 @@ const Navbar = () => {
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <div className="overflow-x-auto max-w-full flex pb-2">
+        <div className="overflow-x-auto max-w-full flex pb-2 hide-scrollbar">
           <AlphabetBar onLetterClick={handleLetterClick} />
         </div>
       </div>
       
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-2 sm:space-x-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="flex items-center gap-1 hover-effect">
+            <Button variant="outline" size="sm" className="flex items-center gap-1 hover-effect hidden sm:flex">
               <Plus className="h-4 w-4 mr-1" />
-              Create
+              <span className="hidden sm:inline">Create</span>
               <ChevronDown className="h-3 w-3 ml-1" />
             </Button>
           </DropdownMenuTrigger>
@@ -83,8 +83,17 @@ const Navbar = () => {
           </DropdownMenuContent>
         </DropdownMenu>
         
-        <Button variant="ghost" size="icon" className="hover-effect">
+        <Button variant="ghost" size="icon" className="hover-effect hidden sm:flex">
           <Bell className="h-5 w-5" />
+        </Button>
+
+        <Button 
+          variant="outline" 
+          size="icon"
+          className="sm:hidden"
+          onClick={() => navigate("/upload")}
+        >
+          <Plus className="h-4 w-4" />
         </Button>
         
         <DropdownMenu>

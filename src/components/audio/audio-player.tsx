@@ -151,18 +151,18 @@ const AudioPlayer = () => {
         {collapsed ? (
           <>
             <Music className="h-4 w-4 mr-1" />
-            <span>Expand Player</span>
+            <span className="hidden sm:inline">Expand Player</span>
           </>
         ) : (
           <>
             <ChevronDown className="h-4 w-4 mr-1" />
-            <span>Hide Player</span>
+            <span className="hidden sm:inline">Hide Player</span>
           </>
         )}
       </button>
       
       <div className={cn("audio-player-container", collapsed && "collapsed")}>
-        <div className="glass-panel p-4 border-t shadow-md animate-fade-in">
+        <div className="glass-panel p-2 sm:p-4 border-t shadow-md animate-fade-in">
           <audio
             ref={audioRef}
             src={currentTrack.url}
@@ -170,8 +170,38 @@ const AudioPlayer = () => {
             hidden
           />
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4 w-1/4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+            {/* Mobile mini player controls (only visible on small screens) */}
+            <div className="flex items-center justify-between sm:hidden w-full mb-2">
+              <div className="flex items-center space-x-2">
+                <img
+                  src={currentTrack.cover || "/placeholder.svg"}
+                  alt={currentTrack.title}
+                  className="h-10 w-10 object-cover rounded-md"
+                />
+                <div className="truncate max-w-[120px]">
+                  <h4 className="font-medium text-sm truncate">{currentTrack.title}</h4>
+                  <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
+                </div>
+              </div>
+              <div className="flex items-center">
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
+                  onClick={togglePlayPause}
+                >
+                  {isPlaying ? (
+                    <Pause className="h-4 w-4" />
+                  ) : (
+                    <Play className="h-4 w-4 ml-0.5" />
+                  )}
+                </Button>
+              </div>
+            </div>
+            
+            {/* Desktop full player controls */}
+            <div className="hidden sm:flex items-center space-x-4 w-1/4">
               <div 
                 className="relative h-12 w-12 overflow-hidden rounded-md bg-muted animate-pulse-subtle cursor-pointer"
                 onClick={openFullScreen}
@@ -215,8 +245,8 @@ const AudioPlayer = () => {
               </Tooltip>
             </div>
 
-            <div className="flex flex-col w-2/4 space-y-2">
-              <div className="flex items-center justify-center space-x-2">
+            <div className="flex flex-col w-full sm:w-2/4 space-y-2">
+              <div className="hidden sm:flex items-center justify-center space-x-2">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -301,7 +331,7 @@ const AudioPlayer = () => {
               </div>
 
               <div className="flex items-center space-x-2">
-                <span className="text-xs text-muted-foreground w-10 text-right">
+                <span className="text-xs text-muted-foreground w-8 sm:w-10 text-right">
                   {formatTime(currentTime)}
                 </span>
                 <Slider
@@ -311,13 +341,13 @@ const AudioPlayer = () => {
                   onValueChange={handleProgressChange}
                   className="w-full"
                 />
-                <span className="text-xs text-muted-foreground w-10">
+                <span className="text-xs text-muted-foreground w-8 sm:w-10">
                   {formatTime(duration)}
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center justify-end space-x-2 w-1/4">
+            <div className="hidden sm:flex items-center justify-end space-x-2 w-1/4">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
