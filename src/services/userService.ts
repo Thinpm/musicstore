@@ -70,14 +70,18 @@ export const userService = {
       
       if (!data.user) throw new Error("No user returned from login");
       
-      // Get user profile data
-      const { data: userData, error: userError } = await supabase
+      // Get user profile data - make sure to handle the case where multiple rows could exist
+      const { data: usersData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('id', data.user.id)
-        .single();
+        .limit(1);
         
       if (userError) throw new Error(userError.message);
+      if (!usersData || usersData.length === 0) throw new Error("User profile not found");
+      
+      // Take the first user profile from the results
+      const userData = usersData[0];
       
       return {
         user: transformUserData(userData),
@@ -111,28 +115,36 @@ export const userService = {
         throw new Error("Please check your email to confirm your account before logging in");
       }
       
-      // At this point we have a valid session (user is authenticated)
-      // Ensure we have the latest session and user data
-      const { data: currentUser, error: userError } = await supabase.auth.getUser();
+      // Wait a moment to ensure the session is properly established
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      if (userError || !currentUser.user) {
+      // Get the current user with the latest session
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) throw new Error(sessionError.message);
+      if (!sessionData.session) throw new Error("Session not established");
+      
+      // Now get the current user
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !userData.user) {
         throw new Error("Failed to get authenticated user details");
       }
       
       // Now that we have a confirmed authenticated session, we can insert into the users table
       // The RLS policy will be satisfied because auth.uid() is now available
-      const { data: userData, error: profileError } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from('users')
-        .insert([
+        .upsert([
           {
-            id: currentUser.user.id,
+            id: userData.user.id,
             email: data.email,
             name: data.name,
             avatar_url: null,
           }
         ])
         .select()
-        .single();
+        .limit(1);
         
       if (profileError) {
         console.error("Profile creation error:", profileError);
@@ -144,9 +156,14 @@ export const userService = {
         throw new Error(`Failed to create user profile: ${profileError.message}`);
       }
       
+      if (!profileData || profileData.length === 0) {
+        await supabase.auth.signOut();
+        throw new Error("Failed to retrieve created user profile");
+      }
+      
       return {
-        user: transformUserData(userData),
-        token: authData.session.access_token
+        user: transformUserData(profileData[0]),
+        token: sessionData.session.access_token
       };
     } catch (error) {
       console.error("Registration error:", error);
@@ -165,17 +182,18 @@ export const userService = {
       if (sessionError) throw new Error(sessionError.message);
       if (!sessionData.session) return null;
       
-      // Get user profile from our users table
-      const { data: userData, error: userError } = await supabase
+      // Get user profile from our users table - handle potential multiple rows
+      const { data: usersData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('id', sessionData.session.user.id)
-        .single();
+        .limit(1);
         
       if (userError) throw new Error(userError.message);
-      if (!userData) return null;
+      if (!usersData || usersData.length === 0) return null;
       
-      return transformUserData(userData);
+      // Return first matching user
+      return transformUserData(usersData[0]);
     } catch (error) {
       console.error("Error fetching user profile:", error);
       throw error;
