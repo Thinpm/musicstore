@@ -1,4 +1,3 @@
-
 import { supabase } from "@/lib/supabase";
 import { apiService } from "./api";
 import { Tables } from "@/types/supabase";
@@ -85,7 +84,7 @@ export const userService = {
       };
     } catch (error) {
       console.error("Login error:", error);
-      return null;
+      throw error;
     }
   },
   
@@ -126,7 +125,7 @@ export const userService = {
       };
     } catch (error) {
       console.error("Registration error:", error);
-      return null;
+      throw error;
     }
   },
   
@@ -136,23 +135,25 @@ export const userService = {
   getCurrentUser: async (): Promise<UserProfile | null> => {
     try {
       // Get current session
-      const { data: session } = await supabase.auth.getSession();
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       
-      if (!session.session) return null;
+      if (sessionError) throw new Error(sessionError.message);
+      if (!sessionData.session) return null;
       
       // Get user profile from our users table
-      const { data: userData, error } = await supabase
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
-        .eq('id', session.session.user.id)
+        .eq('id', sessionData.session.user.id)
         .single();
         
-      if (error) throw new Error(error.message);
+      if (userError) throw new Error(userError.message);
+      if (!userData) return null;
       
       return transformUserData(userData);
     } catch (error) {
       console.error("Error fetching user profile:", error);
-      return null;
+      throw error;
     }
   },
   

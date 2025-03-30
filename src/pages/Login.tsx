@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,13 +15,20 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useLogin, useCurrentUser } from "@/hooks/useUser";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { mutate: login, isPending: isLoggingIn } = useLogin();
+  const { data: user, isLoading: isLoadingUser } = useCurrentUser();
+
+  // If already logged in, redirect to dashboard
+  if (!isLoadingUser && user) {
+    return <Navigate to="/" />;
+  }
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,17 +42,7 @@ const Login = () => {
       return;
     }
     
-    setIsLoading(true);
-    
-    // Simulate login process
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Welcome back!",
-        description: "You've successfully logged in",
-      });
-      navigate("/");
-    }, 1500);
+    login({ email, password });
   };
 
   return (
@@ -98,8 +95,8 @@ const Login = () => {
               />
             </div>
             
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Signing in..." : "Sign In"}
+            <Button type="submit" className="w-full" disabled={isLoggingIn}>
+              {isLoggingIn ? "Signing in..." : "Sign In"}
             </Button>
           </form>
           
