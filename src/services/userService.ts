@@ -104,19 +104,28 @@ export const userService = {
       
       if (!authData.user) throw new Error("No user returned from registration");
       
-      // Wait for session to be established to satisfy RLS
+      // Check if email confirmation is required
       if (!authData.session) {
         // If email confirmation is required, we won't have a session yet
         // We'll need to inform the user to check their email
         throw new Error("Please check your email to confirm your account before logging in");
       }
       
-      // Now that we have a valid session with auth.uid() available, we can insert into users table
+      // At this point we have a valid session (user is authenticated)
+      // Ensure we have the latest session and user data
+      const { data: currentUser, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !currentUser.user) {
+        throw new Error("Failed to get authenticated user details");
+      }
+      
+      // Now that we have a confirmed authenticated session, we can insert into the users table
+      // The RLS policy will be satisfied because auth.uid() is now available
       const { data: userData, error: profileError } = await supabase
         .from('users')
         .insert([
           {
-            id: authData.user.id,
+            id: currentUser.user.id,
             email: data.email,
             name: data.name,
             avatar_url: null,
@@ -128,8 +137,8 @@ export const userService = {
       if (profileError) {
         console.error("Profile creation error:", profileError);
         
-        // If we failed to create the profile, we should log the user out
-        // to clean up the auth state before retrying
+        // If we failed to create the profile but auth was successful,
+        // we should still log the user out to clean up the auth state
         await supabase.auth.signOut();
         
         throw new Error(`Failed to create user profile: ${profileError.message}`);

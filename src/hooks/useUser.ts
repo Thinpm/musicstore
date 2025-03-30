@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { userService, UserProfile, LoginCredentials, RegisterData } from "@/services/userService";
 import { toast } from "@/components/ui/use-toast";
@@ -80,9 +81,15 @@ export function useRegister() {
       }
     },
     onError: (error) => {
-      // Email confirmation messages are handled in the component
+      // Handle email confirmation required message separately
       if (error instanceof Error && 
-          !error.message.includes('check your email')) {
+          error.message.includes('check your email')) {
+        toast({
+          title: "Email confirmation required",
+          description: error.message,
+          variant: "default",
+        });
+      } else {
         toast({
           title: "Registration failed",
           description: error instanceof Error ? error.message : "Could not create account",
