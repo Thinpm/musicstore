@@ -20,6 +20,8 @@ import { useTheme } from "@/components/theme-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import AlphabetBar from "./alphabet-bar";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrentUser, useLogout } from "@/hooks/useUser";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Navbar = () => {
   const { toggleSidebar } = useSidebar();
@@ -27,6 +29,8 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const { data: user, isLoading: isLoadingUser } = useCurrentUser();
+  const { mutate: logout } = useLogout();
 
   const handleLetterClick = (letter: string) => {
     // Handle different behaviors based on current route
@@ -46,6 +50,10 @@ const Navbar = () => {
       });
       // Example: fetchPlaylistsByLetter(letter)
     }
+  };
+
+  const handleLogout = () => {
+    logout();
   };
 
   return (
@@ -102,21 +110,32 @@ const Navbar = () => {
               variant="ghost" 
               className="relative h-9 w-9 rounded-full hover-effect hover:bg-muted/80"
             >
-              <Avatar className="h-9 w-9">
-                <AvatarImage src="/placeholder.svg" alt="User" />
-                <AvatarFallback>JD</AvatarFallback>
-              </Avatar>
+              {isLoadingUser ? (
+                <Skeleton className="h-9 w-9 rounded-full" />
+              ) : (
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={user?.avatarUrl} alt={user?.name || "User"} />
+                  <AvatarFallback>{user?.name?.slice(0, 2).toUpperCase() || "U"}</AvatarFallback>
+                </Avatar>
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium">John Doe</p>
-                <p className="text-xs text-muted-foreground">
-                  john.doe@example.com
-                </p>
+            {isLoadingUser ? (
+              <div className="p-2">
+                <Skeleton className="h-4 w-32 mb-2" />
+                <Skeleton className="h-3 w-24" />
               </div>
-            </DropdownMenuLabel>
+            ) : (
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium">{user?.name || "User"}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {user?.email || ""}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => navigate("/profile")}>
               Profile
@@ -130,7 +149,7 @@ const Navbar = () => {
               {theme === "dark" ? "Light Mode" : "Dark Mode"}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate("/login")}>
+            <DropdownMenuItem onClick={handleLogout}>
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>

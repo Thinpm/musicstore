@@ -16,15 +16,19 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useRegister } from "@/hooks/useUser";
+import { Loader2 } from "lucide-react";
 
 const Register = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { mutate: register, isPending } = useRegister();
 
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,17 +51,21 @@ const Register = () => {
       return;
     }
     
-    setIsLoading(true);
-    
-    // Simulate registration process
-    setTimeout(() => {
-      setIsLoading(false);
+    if (!agreedToTerms) {
       toast({
-        title: "Account created",
-        description: "Your account has been created successfully",
+        title: "Error",
+        description: "You must agree to the Terms of Service and Privacy Policy",
+        variant: "destructive",
       });
-      navigate("/");
-    }, 1500);
+      return;
+    }
+    
+    register({
+      name,
+      email,
+      username: email.split('@')[0], // Using email prefix as username
+      password
+    });
   };
 
   return (
@@ -89,6 +97,7 @@ const Register = () => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
+                disabled={isPending}
               />
             </div>
             
@@ -101,6 +110,7 @@ const Register = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={isPending}
               />
             </div>
             
@@ -113,6 +123,7 @@ const Register = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={isPending}
               />
             </div>
             
@@ -125,11 +136,17 @@ const Register = () => {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
+                disabled={isPending}
               />
             </div>
             
             <div className="flex items-center space-x-2">
-              <Checkbox id="terms" />
+              <Checkbox 
+                id="terms" 
+                checked={agreedToTerms} 
+                onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
+                disabled={isPending}
+              />
               <label
                 htmlFor="terms"
                 className="text-xs text-muted-foreground leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
@@ -145,8 +162,15 @@ const Register = () => {
               </label>
             </div>
             
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Create Account"}
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating account...
+                </>
+              ) : (
+                "Create Account"
+              )}
             </Button>
           </form>
           
@@ -157,10 +181,10 @@ const Register = () => {
           </div>
           
           <div className="grid gap-2">
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" disabled={isPending}>
               Sign up with Google
             </Button>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" disabled={isPending}>
               Sign up with GitHub
             </Button>
           </div>

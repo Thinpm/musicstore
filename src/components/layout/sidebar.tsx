@@ -15,15 +15,22 @@ import {
   Moon,
   Sun
 } from "lucide-react";
+import { useCurrentUser, useLogout } from "@/hooks/useUser";
 
 const Sidebar = () => {
   const { expanded, toggleSidebar } = useSidebar();
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, setTheme } = useTheme();
+  const { data: user } = useCurrentUser();
+  const { mutate: logout } = useLogout();
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
+  };
+
+  const handleLogout = () => {
+    logout();
   };
 
   const menuItems = [
@@ -134,7 +141,7 @@ const Sidebar = () => {
               "justify-start hover-effect",
               !expanded && "justify-center px-0"
             )}
-            onClick={() => navigate("/login")}
+            onClick={handleLogout}
           >
             <LogOut className="h-5 w-5 flex-shrink-0" />
             {expanded && <span className="ml-2 truncate">Logout</span>}
