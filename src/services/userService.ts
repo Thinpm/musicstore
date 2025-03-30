@@ -1,3 +1,4 @@
+
 import { supabase } from "@/lib/supabase";
 import { apiService } from "./api";
 import { Tables } from "@/types/supabase";
@@ -103,7 +104,14 @@ export const userService = {
       
       if (!authData.user) throw new Error("No user returned from registration");
       
-      // Create user profile in our users table
+      // Wait for session to be established to satisfy RLS
+      if (!authData.session) {
+        // If email confirmation is required, we won't have a session yet
+        // We'll need to inform the user to check their email
+        throw new Error("Please check your email to confirm your account before logging in");
+      }
+      
+      // Now that we have a valid session with auth.uid() available, we can insert into users table
       const { data: userData, error: profileError } = await supabase
         .from('users')
         .insert([
@@ -117,11 +125,19 @@ export const userService = {
         .select()
         .single();
         
-      if (profileError) throw new Error(profileError.message);
+      if (profileError) {
+        console.error("Profile creation error:", profileError);
+        
+        // If we failed to create the profile, we should log the user out
+        // to clean up the auth state before retrying
+        await supabase.auth.signOut();
+        
+        throw new Error(`Failed to create user profile: ${profileError.message}`);
+      }
       
       return {
         user: transformUserData(userData),
-        token: authData.session!.access_token
+        token: authData.session.access_token
       };
     } catch (error) {
       console.error("Registration error:", error);
