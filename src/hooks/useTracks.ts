@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trackService, TrackQuery } from "@/services/trackService";
 import { Track } from "@/components/audio/audio-player-provider";
@@ -33,13 +32,15 @@ export function useUploadTrack() {
   return useMutation({
     mutationFn: (data: { 
       file: File, 
+      coverImage?: File | null,
       metadata: Omit<Track, 'id' | 'url' | 'duration'>,
       onProgressUpdate?: (progress: number) => void
     }) => {
       return trackService.uploadTrack(
         data.file, 
-        data.metadata, 
-        data.onProgressUpdate
+        data.metadata,
+        data.onProgressUpdate,
+        data.coverImage
       );
     },
     onSuccess: (data) => {

@@ -1,281 +1,234 @@
-
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { playlistService, Playlist } from "@/services/playlistService";
+import { useToast } from "@/components/ui/use-toast";
+import { CreatePlaylistDialog } from "@/components/playlist/create-playlist-dialog";
 import { Button } from "@/components/ui/button";
-import { 
-  Card, 
-  CardContent, 
-  CardFooter,
-  CardHeader,
-  CardTitle,
-  CardDescription 
-} from "@/components/ui/card";
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter, 
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger
-} from "@/components/ui/dialog";
+import { Trash2, Grid, ListMusic, Filter, Edit, MoreHorizontal } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { EditPlaylistDialog } from "@/components/playlist/edit-playlist-dialog";
 import { 
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { 
-  ListMusic, 
-  Plus, 
-  MoreVertical, 
-  Pencil, 
-  Trash2, 
-  Share,
-  Music,
-  Loader2
-} from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { usePlaylistsByLetter, useCreatePlaylist, useDeletePlaylist } from "@/hooks/usePlaylists";
 
-const Playlists = () => {
-  const [newPlaylistName, setNewPlaylistName] = useState("");
-  const [newPlaylistDescription, setNewPlaylistDescription] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [activeLetter, setActiveLetter] = useState<string | null>(null);
-  const navigate = useNavigate();
+export default function Playlists() {
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editingPlaylist, setEditingPlaylist] = useState<Playlist | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  // Fetch playlists by letter
-  const { 
-    data: playlists = [], 
-    isLoading, 
-    isError 
-  } = usePlaylistsByLetter(activeLetter);
-  
-  // Create playlist mutation
-  const { mutate: createPlaylist, isPending: isCreating } = useCreatePlaylist();
-  
-  // Delete playlist mutation
-  const { mutate: deletePlaylist, isPending: isDeleting } = useDeletePlaylist();
-
-  const handleCreatePlaylist = () => {
-    if (newPlaylistName.trim() === "") {
+  const loadPlaylists = async () => {
+    setIsLoading(true);
+    try {
+      const data = await playlistService.getPlaylists();
+      setPlaylists(data);
+    } catch (error) {
       toast({
-        title: "Playlist name required",
-        description: "Please enter a name for your playlist",
+        title: "Error",
+        description: "Failed to load playlists. Please try again.",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    createPlaylist({
-      title: newPlaylistName,
-      description: newPlaylistDescription || "My custom playlist",
-      coverUrl: "/placeholder.svg",
-    }, {
-      onSuccess: () => {
-        setNewPlaylistName("");
-        setNewPlaylistDescription("");
-        setDialogOpen(false);
+  useEffect(() => {
+    loadPlaylists();
+  }, []);
+
+  const handleDeletePlaylist = async (playlistId: string) => {
+    try {
+      const success = await playlistService.deletePlaylist(playlistId);
+      if (success) {
+        toast({
+          title: "Success",
+          description: "Playlist deleted successfully.",
+        });
+        loadPlaylists();
+      } else {
+        throw new Error("Failed to delete playlist");
       }
-    });
-  };
-
-  const handleDeletePlaylist = (id: string, title: string) => {
-    if (window.confirm(`Are you sure you want to delete "${title}"?`)) {
-      deletePlaylist(id);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete playlist. Please try again.",
+        variant: "destructive",
+      });
     }
   };
-  
-  const handleLetterClick = (letter: string) => {
-    setActiveLetter(letter === activeLetter ? null : letter);
+
+  const handleEditPlaylist = (e: React.MouseEvent, playlist: Playlist) => {
+    e.stopPropagation();
+    setEditingPlaylist(playlist);
   };
+
+  // Filter playlists based on search query
+  const filteredPlaylists = playlists.filter(
+    (playlist) =>
+      playlist.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (playlist.description?.toLowerCase() || "").includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className="flex flex-col space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Your Playlists</h1>
-          <p className="text-muted-foreground">
-            Organize your audio files into collections
-          </p>
+    <div className="container py-8">
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold">My Playlists</h1>
+        <CreatePlaylistDialog onPlaylistCreated={loadPlaylists} />
+      </div>
+
+      <div className="flex items-center justify-between mb-6">
+        <div className="relative w-[300px]">
+          <Input
+            placeholder="Search playlists..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full"
+          />
         </div>
         
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="hover-effect">
-              <Plus className="mr-2 h-4 w-4" />
-              New Playlist
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Playlist</DialogTitle>
-              <DialogDescription>
-                Add a name and description for your new playlist
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="playlist-name">Playlist Name</Label>
-                <Input
-                  id="playlist-name"
-                  placeholder="My Awesome Playlist"
-                  value={newPlaylistName}
-                  onChange={(e) => setNewPlaylistName(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="playlist-description">Description (Optional)</Label>
-                <Input
-                  id="playlist-description"
-                  placeholder="A collection of my favorite tracks"
-                  value={newPlaylistDescription}
-                  onChange={(e) => setNewPlaylistDescription(e.target.value)}
-                />
-              </div>
-            </div>
-            
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreatePlaylist} disabled={isCreating}>
-                {isCreating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  "Create Playlist"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => {}}
+          >
+            <Filter className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === "grid" ? "default" : "outline"}
+            size="icon"
+            onClick={() => setViewMode("grid")}
+          >
+            <Grid className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === "list" ? "default" : "outline"}
+            size="icon"
+            onClick={() => setViewMode("list")}
+          >
+            <ListMusic className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="flex items-center justify-center h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
-      ) : isError ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="glass-card p-8 rounded-xl">
-            <h3 className="text-lg font-medium mb-2">Error loading playlists</h3>
-            <p className="text-muted-foreground mb-6">
-              There was a problem loading your playlists
-            </p>
-            <Button onClick={() => window.location.reload()}>Retry</Button>
-          </div>
+      ) : filteredPlaylists.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">
+            {searchQuery ? "No playlists found." : "You don't have any playlists yet. Create a new one!"}
+          </p>
         </div>
-      ) : playlists.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="glass-card p-10 rounded-xl max-w-md mx-auto">
-            <div className="p-3 rounded-full bg-muted mx-auto mb-4 w-fit">
-              <ListMusic className="h-10 w-10 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-medium mb-2">
-              {activeLetter 
-                ? `No playlists starting with "${activeLetter}"` 
-                : "No playlists yet"}
-            </h3>
-            <p className="text-muted-foreground mb-6">
-              {activeLetter 
-                ? "Try selecting a different letter or create a new playlist"
-                : "Create your first playlist to organize your audio files"}
-            </p>
-            <div className="flex justify-center space-x-4">
-              {activeLetter && (
-                <Button variant="outline" onClick={() => setActiveLetter(null)}>
-                  Show All Playlists
-                </Button>
-              )}
-              <Button onClick={() => setDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create a Playlist
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {playlists.map((playlist) => (
-            <Card key={playlist.id} className="overflow-hidden hover-effect group">
-              <div className="relative h-48 overflow-hidden">
-                <img
-                  src={playlist.coverUrl}
-                  alt={playlist.title}
-                  className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500"
-                />
-                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                  <Button 
-                    variant="secondary"
-                    className="hover-effect"
-                    onClick={() => navigate(`/playlists/${playlist.id}`)}
+      ) : viewMode === "grid" ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredPlaylists.map((playlist) => (
+            <div 
+              key={playlist.id} 
+              className="glass-card p-6 cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => navigate(`/playlists/${playlist.id}`)}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-semibold">{playlist.name}</h2>
+                  {playlist.description && (
+                    <p className="text-muted-foreground">{playlist.description}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hover:bg-accent"
+                    onClick={(e) => handleEditPlaylist(e, playlist)}
                   >
-                    View Playlist
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeletePlaylist(playlist.id);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
               
-              <CardHeader className="pt-5 pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="line-clamp-1">{playlist.title}</CardTitle>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem onClick={() => navigate(`/playlists/${playlist.id}`)}>
-                        <Music className="h-4 w-4 mr-2" /> Play
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Pencil className="h-4 w-4 mr-2" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/playlists/${playlist.id}`);
-                        toast({
-                          title: "Link copied",
-                          description: "Playlist link copied to clipboard",
-                        });
-                      }}>
-                        <Share className="h-4 w-4 mr-2" /> Share
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        className="text-destructive"
-                        onClick={() => handleDeletePlaylist(playlist.id, playlist.title)}
-                        disabled={isDeleting}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" /> Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+              <p className="text-sm text-muted-foreground">
+                {playlist.songs.length} songs
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {filteredPlaylists.map((playlist) => (
+            <div 
+              key={playlist.id} 
+              className="glass-card p-4 cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => navigate(`/playlists/${playlist.id}`)}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">{playlist.name}</h2>
+                  {playlist.description && (
+                    <p className="text-sm text-muted-foreground">{playlist.description}</p>
+                  )}
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {playlist.songs.length} songs
+                  </p>
                 </div>
-                <CardDescription className="line-clamp-2">
-                  {playlist.description}
-                </CardDescription>
-              </CardHeader>
-              
-              <CardFooter className="pt-0 text-sm text-muted-foreground">
-                {playlist.trackCount} {playlist.trackCount === 1 ? "track" : "tracks"}
-              </CardFooter>
-            </Card>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hover:bg-accent"
+                    onClick={(e) => handleEditPlaylist(e, playlist)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeletePlaylist(playlist.id);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       )}
+
+      {editingPlaylist && (
+        <EditPlaylistDialog
+          isOpen={true}
+          onClose={() => setEditingPlaylist(null)}
+          playlistId={editingPlaylist.id}
+          playlistName={editingPlaylist.name}
+          playlistDescription={editingPlaylist.description}
+          tracks={editingPlaylist.songs}
+          onTracksUpdated={loadPlaylists}
+          onPlaylistUpdated={loadPlaylists}
+        />
+      )}
     </div>
   );
-};
-
-export default Playlists;
+}

@@ -1,4 +1,3 @@
-
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSidebar } from "./sidebar-provider";
 import { Button } from "@/components/ui/button";
@@ -22,9 +21,10 @@ import AlphabetBar from "./alphabet-bar";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser, useLogout } from "@/hooks/useUser";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CreatePlaylistDialog } from "@/components/playlist/create-playlist-dialog";
 
 const Navbar = () => {
-  const { toggleSidebar } = useSidebar();
+  const { toggle } = useSidebar();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -63,7 +63,7 @@ const Navbar = () => {
           variant="ghost" 
           size="icon" 
           className="md:hidden mr-2" 
-          onClick={toggleSidebar}
+          onClick={toggle}
         >
           <Menu className="h-5 w-5" />
         </Button>
@@ -85,8 +85,8 @@ const Navbar = () => {
             <DropdownMenuItem onClick={() => navigate("/upload")}>
               Upload Audio
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              Create Playlist
+            <DropdownMenuItem asChild>
+              <CreatePlaylistDialog />
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

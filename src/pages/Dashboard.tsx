@@ -1,21 +1,49 @@
-
 import { useState } from "react";
-import { useAudioPlayer } from "@/components/audio/audio-player-provider";
+import { Track } from "@/components/audio/audio-player-provider";
+import { useTracksQuery } from "@/hooks/useTracks";
 import AudioCard from "@/components/audio/audio-card";
+import { useToast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, Grid, ListMusic } from "lucide-react";
-import { useTracksByLetter } from "@/hooks/useTracks";
+import { Search, Grid, ListMusic } from "lucide-react";
+import { useAuth } from "@/components/auth/auth-provider";
 
-const Dashboard = () => {
+export default function Dashboard() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeLetter, setActiveLetter] = useState<string | null>(null);
-  const { playTrack } = useAudioPlayer();
-  
-  // Fetch tracks by first letter
-  const { data: tracks = [], isLoading, isError } = useTracksByLetter(activeLetter);
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  // Use React Query to manage data
+  const { data: tracks = [], isLoading, error } = useTracksQuery({
+    sortBy: 'created_at',
+    sortOrder: 'desc'
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    toast({
+      title: "Error",
+      description: "Failed to load tracks",
+      variant: "destructive",
+    });
+  }
+
+  if (tracks.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] gap-4">
+        <h1 className="text-2xl font-bold">No tracks yet</h1>
+        <p className="text-muted-foreground">Upload your first track to get started</p>
+      </div>
+    );
+  }
 
   // Filter tracks based on search query
   const filteredTracks = tracks.filter(
@@ -24,122 +52,56 @@ const Dashboard = () => {
       track.artist.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleLetterClick = (letter: string) => {
-    setActiveLetter(letter === activeLetter ? null : letter);
-  };
-
   return (
-    <div className="animate-fade-in">
+    <div className="container py-8">
+      <h1 className="text-3xl font-bold mb-8">Your Library</h1>
       <div className="flex flex-col space-y-6">
         <div className="flex flex-col space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Your Library</h1>
           <p className="text-muted-foreground">
-            Manage and play your uploaded audio files
+            Manage and play music from your library
           </p>
         </div>
 
-        <div className="flex flex-col space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between gap-4">
-            <div className="relative w-full sm:w-64 md:w-96">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search your library..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <Button variant="outline" size="icon">
-                <Filter className="h-4 w-4" />
-              </Button>
-              
-              <div className="bg-muted rounded-lg p-1 flex">
-                <Button 
-                  variant={viewMode === "grid" ? "secondary" : "ghost"} 
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setViewMode("grid")}
-                >
-                  <Grid className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant={viewMode === "list" ? "secondary" : "ghost"} 
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setViewMode("list")}
-                >
-                  <ListMusic className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+        <div className="flex items-center justify-between">
+          <div className="relative w-[300px]">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search tracks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8"
+            />
           </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant={viewMode === "grid" ? "default" : "outline"}
+              size="icon"
+              onClick={() => setViewMode("grid")}
+            >
+              <Grid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "list" ? "default" : "outline"}
+              size="icon"
+              onClick={() => setViewMode("list")}
+            >
+              <ListMusic className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
 
-          <Tabs defaultValue="all">
-            <TabsList>
-              <TabsTrigger value="all">All Files</TabsTrigger>
-              <TabsTrigger value="recent">Recent</TabsTrigger>
-              <TabsTrigger value="favorites">Favorites</TabsTrigger>
-            </TabsList>
-            <TabsContent value="all" className="mt-4">
-              {isLoading ? (
-                <div className="flex justify-center py-12">
-                  <div className="loading-spinner h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
-                </div>
-              ) : isError ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="glass-card p-8 rounded-xl">
-                    <h3 className="text-lg font-medium mb-2">Error loading audio files</h3>
-                    <p className="text-muted-foreground mb-6">
-                      There was a problem loading your audio files
-                    </p>
-                    <Button onClick={() => window.location.reload()}>Retry</Button>
-                  </div>
-                </div>
-              ) : filteredTracks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="glass-card p-8 rounded-xl">
-                    <h3 className="text-lg font-medium mb-2">No audio files found</h3>
-                    <p className="text-muted-foreground mb-6">
-                      {activeLetter 
-                        ? `No tracks starting with "${activeLetter}"`
-                        : "Upload some audio files to get started"}
-                    </p>
-                    <Button onClick={() => setActiveLetter(null)}>
-                      {activeLetter ? "Show All Tracks" : "Upload Files"}
-                    </Button>
-                  </div>
-                </div>
-              ) : viewMode === "grid" ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {filteredTracks.map((track) => (
-                    <AudioCard key={track.id} track={track} />
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col space-y-2">
-                  {filteredTracks.map((track) => (
-                    <AudioCard key={track.id} track={track} compact />
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-            <TabsContent value="recent" className="mt-6">
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <p className="text-muted-foreground">Recently played tracks will appear here</p>
-              </div>
-            </TabsContent>
-            <TabsContent value="favorites" className="mt-6">
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <p className="text-muted-foreground">Your favorite tracks will appear here</p>
-              </div>
-            </TabsContent>
-          </Tabs>
+        <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" : "grid gap-4"}>
+          {filteredTracks.map((track, index) => (
+            <AudioCard
+              key={track.id}
+              track={track}
+              tracks={filteredTracks}
+              currentIndex={index}
+              compact={viewMode === "list"}
+            />
+          ))}
         </div>
       </div>
     </div>
   );
-};
-
-export default Dashboard;
+}

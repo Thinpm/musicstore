@@ -1,4 +1,3 @@
-
 import { supabase } from "@/lib/supabase";
 import { apiService } from "./api";
 import { Tables } from "@/types/supabase";
@@ -135,7 +134,7 @@ export const userService = {
       // The RLS policy will be satisfied because auth.uid() is now available
       const { data: profileData, error: profileError } = await supabase
         .from('users')
-        .upsert([
+        .insert([
           {
             id: userData.user.id,
             email: data.email,
@@ -153,7 +152,11 @@ export const userService = {
         // we should still log the user out to clean up the auth state
         await supabase.auth.signOut();
         
-        throw new Error(`Failed to create user profile: ${profileError.message}`);
+        if (profileError.code === '23505') { // Unique violation
+          throw new Error("Email đã được đăng ký");
+        }
+        
+        throw new Error(`Không thể tạo hồ sơ người dùng: ${profileError.message}`);
       }
       
       if (!profileData || profileData.length === 0) {

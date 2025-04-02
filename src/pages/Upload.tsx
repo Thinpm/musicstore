@@ -142,6 +142,7 @@ const Upload = () => {
     
     uploadTrack({
       file,
+      coverImage,
       metadata: {
         title: title || file.name.replace(/\.[^/.]+$/, ""),
         artist: artist || "Unknown Artist",

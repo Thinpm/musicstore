@@ -1,4 +1,3 @@
-
 import { supabase } from "@/lib/supabase";
 import { apiService } from "./api";
 import { Track } from "@/components/audio/audio-player-provider";
@@ -30,9 +29,13 @@ export const trackService = {
    */
   getAllTracks: async (query: TrackQuery = {}): Promise<Track[]> => {
     try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) return [];
+
       let tracksQuery = supabase
         .from('songs')
-        .select('*');
+        .select('*')
+        .eq('user_id', session.session.user.id);
       
       // Filter by starting letter if provided
       if (query.startsWith) {
@@ -105,7 +108,8 @@ export const trackService = {
   uploadTrack: async (
     file: File, 
     metadata: Omit<Track, 'id' | 'url' | 'duration'>,
-    onProgressUpdate?: (progress: number) => void
+    onProgressUpdate?: (progress: number) => void,
+    coverImage?: File | null
   ): Promise<Track | null> => {
     try {
       // Get current user
@@ -119,91 +123,128 @@ export const trackService = {
       const fileExt = file.name.split('.').pop();
       const fileName = `${userId}/${Date.now()}.${fileExt}`;
       const filePath = `audio/${fileName}`;
+
+      console.log('Uploading file:', {
+        originalName: file.name,
+        filePath,
+        fileSize: file.size,
+        fileType: file.type
+      });
       
       // Upload audio file to Supabase Storage
-      let currentProgress = 0;
-      
-      // Manually handle progress updates since Supabase doesn't support it directly
-      if (onProgressUpdate) {
-        onProgressUpdate(10); // Starting progress
-        currentProgress = 10;
-      }
-      
       const { data: storageData, error: storageError } = await supabase
         .storage
         .from('songs')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: true,
+          contentType: file.type
         });
       
       if (storageError) throw new Error(storageError.message);
+
+      console.log('File uploaded successfully:', {
+        storageData,
+        path: filePath
+      });
       
-      if (onProgressUpdate) {
-        onProgressUpdate(70); // File uploaded, now metadata
-        currentProgress = 70;
-      }
-      
-      // Get public URL for the file
-      const { data: urlData } = supabase
+      // Get signed URL that will work for streaming
+      const { data: signedData, error: signedError } = await supabase
         .storage
         .from('songs')
-        .getPublicUrl(filePath);
+        .createSignedUrl(filePath, 31536000);
+
+      if (signedError) throw new Error(signedError.message);
+
+      // Remove any existing query parameters and create clean URL
+      const url = new URL(signedData.signedUrl);
+      const cleanUrl = `${url.origin}${url.pathname}?token=${url.searchParams.get('token')}`;
+
+      // Handle cover image if provided
+      let coverUrl = metadata.cover;
+      if (coverImage) {
+        // Upload cover image
+        const coverFileName = `${userId}/${Date.now()}_cover.jpg`;
+        const coverPath = coverFileName;
+        
+        const { data: coverData, error: coverError } = await supabase
+          .storage
+          .from('covers')
+          .upload(coverPath, coverImage, {
+            cacheControl: '3600',
+            upsert: true,
+            contentType: coverImage.type
+          });
+          
+        if (coverError) {
+          console.error('Error uploading cover:', coverError);
+        } else {
+          // Get signed URL for cover
+          const { data: coverUrlData, error: coverUrlError } = await supabase
+            .storage
+            .from('covers')
+            .createSignedUrl(coverPath, 31536000); // URL valid for 1 year
+            
+          if (coverUrlError) {
+            console.error('Error getting cover URL:', coverUrlError);
+          } else {
+            // Remove any existing query parameters and create clean URL
+            const url = new URL(coverUrlData.signedUrl);
+            coverUrl = `${url.origin}${url.pathname}?token=${url.searchParams.get('token')}`;
+          }
+        }
+      }
+
+      console.log('Generated URLs:', {
+        audioUrl: cleanUrl,
+        coverUrl: coverUrl
+      });
       
       // Get audio duration - attempt to get it client-side
       let duration = 0;
       try {
-        const audio = new Audio();
-        audio.src = URL.createObjectURL(file);
+        const audio = new Audio(cleanUrl);
         await new Promise((resolve) => {
-          audio.onloadedmetadata = () => {
+          audio.addEventListener('loadedmetadata', () => {
+            // Làm tròn duration thành số nguyên
             duration = Math.round(audio.duration);
-            resolve(duration);
-          };
-          
-          // Fallback if metadata loading fails
-          setTimeout(() => {
-            if (duration === 0) {
-              duration = 180; // Default 3 minutes
-              resolve(duration);
-            }
-          }, 3000);
+            resolve(null);
+          });
         });
-      } catch (err) {
-        console.warn("Could not get audio duration", err);
-        duration = 180; // Default 3 minutes as fallback
+      } catch (error) {
+        console.error('Error getting duration:', error);
+        // Nếu không lấy được duration, mặc định là 0
+        duration = 0;
       }
-      
-      if (onProgressUpdate) {
-        onProgressUpdate(85); // Creating database entry
-        currentProgress = 85;
-      }
-      
-      // Create entry in the songs table
-      const { data: songData, error: songError } = await supabase
+
+      // Insert record into songs table
+      const { data: songData, error: insertError } = await supabase
         .from('songs')
-        .insert([{
-          title: metadata.title,
-          artist: metadata.artist,
-          duration: duration,
-          url: urlData.publicUrl,
-          cover_url: metadata.cover,
-          user_id: userId,
-          is_public: true
-        }])
+        .insert([
+          {
+            title: metadata.title,
+            artist: metadata.artist,
+            duration: duration,
+            url: cleanUrl,
+            cover_url: coverUrl,
+            user_id: userId,
+            is_public: true
+          }
+        ])
         .select()
         .single();
-      
-      if (songError) throw new Error(songError.message);
-      
-      if (onProgressUpdate) {
-        onProgressUpdate(100); // Complete
+
+      if (insertError) {
+        console.error('Error inserting song record:', insertError);
+        throw new Error(insertError.message);
       }
-      
+
+      console.log('Song record created:', songData);
+
       return transformTrackData(songData);
     } catch (error) {
       console.error("Error uploading track:", error);
-      return null;
+      throw error;
     }
   },
   

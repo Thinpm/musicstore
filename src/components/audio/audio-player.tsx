@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useAudioPlayer, Track } from "./audio-player-provider";
 import { Button } from "@/components/ui/button";
@@ -29,6 +28,9 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip";
 import FullScreenPlayer from "./full-screen-player";
+import { ShareDialog } from "@/components/share/share-dialog";
+import { QueueDialog } from "@/components/queue/queue-dialog";
+import { FavoriteButton } from "@/components/favorite/favorite-button";
 
 const formatTime = (seconds: number): string => {
   const mins = Math.floor(seconds / 60);
@@ -51,79 +53,74 @@ const AudioPlayer = () => {
     nextTrack,
     previousTrack,
     toggleLoop,
-    toggleShuffle
+    toggleShuffle,
+    error
   } = useAudioPlayer();
+
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [showWaveform, setShowWaveform] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [liked, setLiked] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     const savedState = localStorage.getItem("audioPlayerCollapsed");
     return savedState === "true";
   });
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showQueueDialog, setShowQueueDialog] = useState(false);
+  const [loadingState, setLoadingState] = useState<"loading" | "error" | "ready">("ready");
 
   useEffect(() => {
     localStorage.setItem("audioPlayerCollapsed", String(collapsed));
   }, [collapsed]);
 
+  // Update times based on progress
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || !currentTrack) return;
-
-    const updateProgress = () => {
-      setCurrentTime(audio.currentTime);
-      setProgress(audio.currentTime / audio.duration);
-    };
-
-    const handleLoadedMetadata = () => {
-      setDuration(audio.duration);
-    };
-
-    audio.addEventListener("timeupdate", updateProgress);
-    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
-
-    if (isPlaying) {
-      audio.play().catch((error) => {
-        console.error("Error playing audio:", error);
-      });
-    } else {
-      audio.pause();
+    if (currentTrack && duration) {
+      setCurrentTime(progress * duration);
     }
+  }, [progress, duration, currentTrack]);
 
-    audio.volume = volume;
-    
-    audio.loop = isLooping;
-
-    return () => {
-      audio.removeEventListener("timeupdate", updateProgress);
-      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
-    };
-  }, [currentTrack, isPlaying, volume, setProgress, isLooping]);
+  // Set the initial duration
+  useEffect(() => {
+    if (currentTrack) {
+      try {
+        if (currentTrack.duration <= 0) {
+          throw new Error("Thời lượng bài hát không hợp lệ");
+        }
+        setDuration(currentTrack.duration);
+        setLoadingState("ready");
+      } catch (error) {
+        console.error("Lỗi khi tải metadata:", error);
+        setLoadingState("error");
+      }
+    }
+  }, [currentTrack]);
 
   const handleProgressChange = (value: number[]) => {
-    const newTime = value[0] * duration;
-    setCurrentTime(newTime);
-    if (audioRef.current) {
-      audioRef.current.currentTime = newTime;
+    if (loadingState === "ready") {
+      setProgress(value[0]);
     }
   };
 
   const handleVolumeChange = (value: number[]) => {
-    const newVolume = value[0];
-    setVolume(newVolume);
+    if (loadingState === "ready") {
+      setVolume(value[0]);
+    }
   };
 
   const toggleMute = () => {
-    setVolume(volume === 0 ? 0.7 : 0);
+    if (loadingState === "ready") {
+      setVolume(volume === 0 ? 0.7 : 0);
+    }
   };
 
   const togglePlayPause = () => {
-    if (isPlaying) {
-      pauseTrack();
-    } else {
-      resumeTrack();
+    if (loadingState === "ready") {
+      if (isPlaying) {
+        pauseTrack();
+      } else {
+        resumeTrack();
+      }
     }
   };
 
@@ -143,6 +140,18 @@ const AudioPlayer = () => {
 
   return (
     <>
+      {error && (
+        <div className="fixed top-4 right-4 bg-destructive text-destructive-foreground px-4 py-2 rounded-md shadow-lg animate-in fade-in slide-in-from-top-2">
+          {error}
+        </div>
+      )}
+      
+      {loadingState === "error" && (
+        <div className="fixed top-4 right-4 bg-destructive text-destructive-foreground px-4 py-2 rounded-md shadow-lg animate-in fade-in slide-in-from-top-2">
+          Không thể tải thông tin bài hát
+        </div>
+      )}
+      
       <button 
         className="audio-player-toggle"
         onClick={toggleCollapse}
@@ -161,15 +170,12 @@ const AudioPlayer = () => {
         )}
       </button>
       
-      <div className={cn("audio-player-container", collapsed && "collapsed")}>
+      <div className={cn(
+        "audio-player-container",
+        collapsed && "collapsed",
+        loadingState === "loading" && "opacity-75"
+      )}>
         <div className="glass-panel p-2 sm:p-4 border-t shadow-md animate-fade-in">
-          <audio
-            ref={audioRef}
-            src={currentTrack.url}
-            onEnded={nextTrack}
-            hidden
-          />
-
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
             {/* Mobile mini player controls (only visible on small screens) */}
             <div className="flex items-center justify-between sm:hidden w-full mb-2">
@@ -178,6 +184,7 @@ const AudioPlayer = () => {
                   src={currentTrack.cover || "/placeholder.svg"}
                   alt={currentTrack.title}
                   className="h-10 w-10 object-cover rounded-md"
+                  crossOrigin="anonymous"
                 />
                 <div className="truncate max-w-[120px]">
                   <h4 className="font-medium text-sm truncate">{currentTrack.title}</h4>
@@ -210,6 +217,7 @@ const AudioPlayer = () => {
                   src={currentTrack.cover || "/placeholder.svg"}
                   alt={currentTrack.title}
                   className="h-full w-full object-cover"
+                  crossOrigin="anonymous"
                 />
               </div>
               <div className="hidden sm:block">
@@ -225,22 +233,15 @@ const AudioPlayer = () => {
               </div>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setLiked(!liked)}
-                  >
-                    <Heart
-                      className={cn(
-                        "h-4 w-4",
-                        liked ? "fill-destructive text-destructive" : ""
-                      )}
+                  <div className="h-8 w-8 flex items-center justify-center">
+                    <FavoriteButton
+                      songId={currentTrack.id}
+                      className="h-8 w-8"
                     />
-                  </Button>
+                  </div>
                 </TooltipTrigger>
                 <TooltipContent side="top">
-                  {liked ? "Remove from favorites" : "Add to favorites"}
+                  Thêm vào yêu thích
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -347,78 +348,47 @@ const AudioPlayer = () => {
               </div>
             </div>
 
-            <div className="hidden sm:flex items-center justify-end space-x-2 w-1/4">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={openFullScreen}
-                  >
-                    <Maximize2 className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">Full Screen</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => {}}
-                  >
-                    <Share className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">Share</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => {}}
-                  >
-                    <ListMusic className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">Queue</TooltipContent>
-              </Tooltip>
-
-              <div className="hidden sm:flex items-center space-x-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={toggleMute}
-                >
-                  {volume === 0 ? (
-                    <VolumeX className="h-4 w-4" />
-                  ) : volume < 0.5 ? (
-                    <Volume1 className="h-4 w-4" />
-                  ) : (
-                    <Volume2 className="h-4 w-4" />
-                  )}
-                </Button>
-                <Slider
-                  value={[volume]}
-                  max={1}
-                  step={0.01}
-                  onValueChange={handleVolumeChange}
-                  className="w-20"
-                />
-              </div>
+            <div className="hidden sm:flex items-center space-x-2 w-1/4 justify-end">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={toggleMute}
+              >
+                {volume === 0 ? (
+                  <VolumeX className="h-4 w-4" />
+                ) : volume < 0.5 ? (
+                  <Volume1 className="h-4 w-4" />
+                ) : (
+                  <Volume2 className="h-4 w-4" />
+                )}
+              </Button>
+              <Slider
+                value={[volume]}
+                max={1}
+                step={0.01}
+                onValueChange={handleVolumeChange}
+                className="w-20"
+              />
             </div>
           </div>
         </div>
       </div>
       
       <FullScreenPlayer isOpen={isFullScreen} onClose={closeFullScreen} />
+      {currentTrack && (
+        <ShareDialog
+          isOpen={showShareDialog}
+          onClose={() => setShowShareDialog(false)}
+          title={currentTrack.title}
+          type="song"
+          id={currentTrack.id}
+        />
+      )}
+      <QueueDialog
+        isOpen={showQueueDialog}
+        onClose={() => setShowQueueDialog(false)}
+      />
     </>
   );
 };

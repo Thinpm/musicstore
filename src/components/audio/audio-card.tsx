@@ -1,8 +1,21 @@
-
 import { useAudioPlayer, Track } from "./audio-player-provider";
 import { Button } from "@/components/ui/button";
-import { Play, Pause, MoreHorizontal } from "lucide-react";
+import { Play, Pause, MoreHorizontal, Share, Trash2, ListMinus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AddToPlaylistDialog } from "@/components/playlist/add-to-playlist-dialog";
+import { ShareDialog } from "@/components/share/share-dialog";
+import { useState } from "react";
+import { FavoriteButton } from "@/components/favorite/favorite-button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/lib/supabase";
+import { playlistService } from "@/services/playlistService";
 
 export const formatDuration = (seconds: number): string => {
   const minutes = Math.floor(seconds / 60);
@@ -15,10 +28,21 @@ type AudioCardProps = {
   compact?: boolean;
   tracks?: Track[]; // Optional array of all tracks in the current view
   currentIndex?: number; // Optional index of the current track in the tracks array
+  playlistId?: string; // Optional playlist ID if the track is being displayed in a playlist
+  onRemoveFromPlaylist?: () => void; // Callback when track is removed from playlist
 };
 
-const AudioCard = ({ track, compact = false, tracks, currentIndex }: AudioCardProps) => {
+const AudioCard = ({ 
+  track, 
+  compact = false, 
+  tracks, 
+  currentIndex,
+  playlistId,
+  onRemoveFromPlaylist 
+}: AudioCardProps) => {
   const { playTrack, currentTrack, isPlaying, pauseTrack, resumeTrack } = useAudioPlayer();
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const { toast } = useToast();
 
   const isCurrentTrack = currentTrack?.id === track.id;
 
@@ -64,6 +88,58 @@ const AudioCard = ({ track, compact = false, tracks, currentIndex }: AudioCardPr
     }
   };
 
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const { error } = await supabase
+        .from('songs')
+        .delete()
+        .eq('id', track.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Xóa bài hát thành công",
+        description: `Đã xóa "${track.title}"`,
+      });
+
+      // Reload the page to refresh the song list
+      window.location.reload();
+    } catch (error) {
+      console.error('Error deleting song:', error);
+      toast({
+        title: "Lỗi",
+        description: "Không thể xóa bài hát. Vui lòng thử lại sau.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRemoveFromPlaylist = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!playlistId) return;
+
+    try {
+      const success = await playlistService.removeSongFromPlaylist(playlistId, track.id);
+      if (success) {
+        toast({
+          title: "Đã xóa khỏi playlist",
+          description: `Đã xóa "${track.title}" khỏi playlist`,
+        });
+        onRemoveFromPlaylist?.();
+      } else {
+        throw new Error("Không thể xóa bài hát khỏi playlist");
+      }
+    } catch (error) {
+      console.error('Error removing song from playlist:', error);
+      toast({
+        title: "Lỗi",
+        description: error instanceof Error ? error.message : "Không thể xóa bài hát khỏi playlist. Vui lòng thử lại sau.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div
       className={cn(
@@ -84,6 +160,7 @@ const AudioCard = ({ track, compact = false, tracks, currentIndex }: AudioCardPr
             src={track.cover || "/placeholder.svg"}
             alt={track.title}
             className="h-full w-full object-cover"
+            crossOrigin="anonymous"
           />
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
             <Button
@@ -120,15 +197,15 @@ const AudioCard = ({ track, compact = false, tracks, currentIndex }: AudioCardPr
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span
+        <div className="flex items-center gap-2 z-10">
+          <AddToPlaylistDialog track={track} />
+          <FavoriteButton
+            songId={track.id}
             className={cn(
-              "text-muted-foreground",
-              compact ? "text-xs" : "text-sm"
+              "opacity-0 group-hover:opacity-100",
+              compact ? "h-7 w-7" : "h-8 w-8"
             )}
-          >
-            {formatDuration(track.duration)}
-          </span>
+          />
           <Button
             variant="ghost"
             size="icon"
@@ -137,11 +214,61 @@ const AudioCard = ({ track, compact = false, tracks, currentIndex }: AudioCardPr
             )}
             onClick={(e) => {
               e.stopPropagation();
-              // Handle more options
+              setShowShareDialog(true);
             }}
           >
-            <MoreHorizontal className={cn("h-4 w-4", compact ? "h-3 w-3" : "")} />
+            <Share className={cn("h-4 w-4", compact ? "h-3 w-3" : "")} />
           </Button>
+          <ShareDialog
+            isOpen={showShareDialog}
+            onClose={() => setShowShareDialog(false)}
+            title={track.title}
+            type="song"
+            id={track.id}
+          />
+          <span
+            className={cn(
+              "text-xs text-muted-foreground",
+              compact ? "hidden" : "block"
+            )}
+          >
+            {formatDuration(track.duration || 0)}
+          </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn("opacity-0 group-hover:opacity-100", 
+                  compact ? "h-7 w-7" : "h-8 w-8"
+                )}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreHorizontal className={cn("h-4 w-4", compact ? "h-3 w-3" : "")} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {playlistId && (
+                <>
+                  <DropdownMenuItem 
+                    className="text-destructive focus:text-destructive"
+                    onClick={handleRemoveFromPlaylist}
+                  >
+                    <ListMinus className="h-4 w-4 mr-2" />
+                    Xóa khỏi playlist
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              <DropdownMenuItem 
+                className="text-destructive focus:text-destructive"
+                onClick={handleDelete}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Xóa bài hát
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </div>

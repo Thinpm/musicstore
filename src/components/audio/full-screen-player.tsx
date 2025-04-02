@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useAudioPlayer } from "./audio-player-provider";
 import { Button } from "@/components/ui/button";
@@ -24,6 +23,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip";
+import { FavoriteButton } from "@/components/favorite/favorite-button";
 
 // Reuse the formatTime function from audio-player.tsx
 const formatTime = (seconds: number): string => {
@@ -43,19 +43,20 @@ const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => {
     isPlaying,
     volume,
     progress,
+    isLooping,
+    isShuffling,
     pauseTrack,
     resumeTrack,
     setVolume,
     setProgress,
     nextTrack,
     previousTrack,
+    toggleLoop,
+    toggleShuffle
   } = useAudioPlayer();
   
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
-  const [liked, setLiked] = useState(false);
-  const [isLooping, setIsLooping] = useState(false);
-  const [isShuffling, setIsShuffling] = useState(false);
 
   useEffect(() => {
     // Update times based on progress
@@ -118,14 +119,12 @@ const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => {
     }
   };
 
-  const toggleLoop = () => {
-    setIsLooping(!isLooping);
-    // Implement looping logic in the audio player provider
+  const handleToggleLoop = () => {
+    toggleLoop();
   };
 
-  const toggleShuffle = () => {
-    setIsShuffling(!isShuffling);
-    // Implement shuffle logic in the audio player provider
+  const handleToggleShuffle = () => {
+    toggleShuffle();
   };
 
   if (!isOpen || !currentTrack) return null;
@@ -158,7 +157,8 @@ const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => {
           <img
             src={currentTrack.cover || "/placeholder.svg"}
             alt={currentTrack.title}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="h-full w-full object-cover"
+            crossOrigin="anonymous"
           />
           <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <Button 
@@ -180,19 +180,10 @@ const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => {
         <div className="text-center mb-8 w-full">
           <div className="flex items-center justify-center gap-3">
             <h1 className="text-2xl md:text-3xl font-bold">{currentTrack.title}</h1>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setLiked(!liked)}
-            >
-              <Heart
-                className={cn(
-                  "h-5 w-5",
-                  liked ? "fill-destructive text-destructive" : ""
-                )}
-              />
-            </Button>
+            <FavoriteButton
+              songId={currentTrack.id}
+              className="h-10 w-10"
+            />
           </div>
           <p className="text-lg text-muted-foreground">{currentTrack.artist}</p>
         </div>
@@ -225,12 +216,12 @@ const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => {
                   "h-10 w-10 rounded-full",
                   isShuffling ? "bg-primary/20 text-primary" : ""
                 )}
-                onClick={toggleShuffle}
+                onClick={handleToggleShuffle}
               >
                 <Shuffle className="h-5 w-5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="top">Shuffle</TooltipContent>
+            <TooltipContent side="top">Phát ngẫu nhiên</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -244,7 +235,7 @@ const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => {
                 <SkipBack className="h-6 w-6" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="top">Previous</TooltipContent>
+            <TooltipContent side="top">Bài trước</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -263,7 +254,7 @@ const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top">
-              {isPlaying ? "Pause" : "Play"}
+              {isPlaying ? "Tạm dừng" : "Phát"}
             </TooltipContent>
           </Tooltip>
 
@@ -278,7 +269,7 @@ const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => {
                 <SkipForward className="h-6 w-6" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="top">Next</TooltipContent>
+            <TooltipContent side="top">Bài tiếp theo</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -290,12 +281,12 @@ const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => {
                   "h-10 w-10 rounded-full",
                   isLooping ? "bg-primary/20 text-primary" : ""
                 )}
-                onClick={toggleLoop}
+                onClick={handleToggleLoop}
               >
                 <Repeat className="h-5 w-5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="top">Repeat</TooltipContent>
+            <TooltipContent side="top">Lặp lại</TooltipContent>
           </Tooltip>
         </div>
         
