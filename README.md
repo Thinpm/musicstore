@@ -1,69 +1,90 @@
-# Welcome to your Lovable project
+# SoundStreamline - Ứng dụng Nghe nhạc Trực tuyến
 
-## Project info
+SoundStreamline là một ứng dụng nghe nhạc trực tuyến cho phép người dùng tải lên, chia sẻ và thưởng thức âm nhạc. Với giao diện người dùng hiện đại và trải nghiệm mượt mà, SoundStreamline mang đến cách tốt nhất để khám phá và chia sẻ âm nhạc.
 
-**URL**: https://lovable.dev/projects/7986f282-47e2-48b2-82b6-2802c50f366f
+## Tính năng chính
 
-## How can I edit this code?
+- 🎵 **Phát nhạc trực tuyến**: Nghe nhạc với chất lượng cao
+- 📤 **Tải lên**: Dễ dàng tải lên các bài hát của bạn
+- 📋 **Playlist**: Tạo và quản lý các playlist cá nhân
+- 💟 **Yêu thích**: Đánh dấu các bài hát yêu thích
+- 🔄 **Chia sẻ**: Chia sẻ bài hát và playlist với bạn bè
+- 👥 **Xác thực**: Hệ thống đăng nhập/đăng ký an toàn
 
-There are several ways of editing your application.
+## Công nghệ sử dụng
 
-**Use Lovable**
+- **Frontend**:
+  - React + TypeScript
+  - Vite
+  - Tailwind CSS
+  - shadcn/ui
+  - React Router
+  - Zustand
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/7986f282-47e2-48b2-82b6-2802c50f366f) and start prompting.
+- **Backend**:
+  - Supabase
+  - PostgreSQL
+  - Row Level Security (RLS)
 
-Changes made via Lovable will be committed automatically to this repo.
+## Cài đặt và Chạy
 
-**Use your preferred IDE**
+1. Clone repository:
+```bash
+git clone https://github.com/Thinpm/musicstore.git
+cd musicstore
+```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+2. Cài đặt dependencies:
+```bash
+npm install
+```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+3. Tạo file .env và cấu hình các biến môi trường:
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+4. Chạy ứng dụng ở môi trường development:
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Cấu trúc thư mục
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```
+src/
+├── components/     # React components
+├── hooks/         # Custom hooks
+├── lib/           # Utilities và helpers
+├── pages/         # Route components
+├── services/      # API services
+└── styles/        # Global styles
+```
 
-**Use GitHub Codespaces**
+## API Documentation
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Authentication
+- `POST /auth/register`: Đăng ký tài khoản mới
+- `POST /auth/login`: Đăng nhập
+- `POST /auth/logout`: Đăng xuất
 
-## What technologies are used for this project?
+### Songs
+- `GET /songs`: Lấy danh sách bài hát
+- `POST /songs`: Tải lên bài hát mới
+- `GET /songs/:id`: Lấy thông tin bài hát
+- `DELETE /songs/:id`: Xóa bài hát
 
-This project is built with .
+### Playlists
+- `GET /playlists`: Lấy danh sách playlist
+- `POST /playlists`: Tạo playlist mới
+- `PUT /playlists/:id`: Cập nhật playlist
+- `DELETE /playlists/:id`: Xóa playlist
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Đóng góp
 
-## How can I deploy this project?
+Mọi đóng góp đều được chào đón! Hãy tạo issue hoặc pull request nếu bạn muốn cải thiện dự án.
 
-Simply open [Lovable](https://lovable.dev/projects/7986f282-47e2-48b2-82b6-2802c50f366f) and click on Share -> Publish.
+## License
 
-## I want to use a custom domain - is that possible?
-
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+MIT License - xem file [LICENSE](LICENSE) để biết thêm chi tiết.
