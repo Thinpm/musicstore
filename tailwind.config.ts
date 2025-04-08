@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -109,6 +108,17 @@ export default {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "pulse-subtle": "pulse-subtle 2s infinite ease-in-out",
+      },
+      backdropBlur: {
+        'glass': 'blur(8px)',
+      },
+      backgroundColor: {
+        'glass': 'rgba(255, 255, 255, 0.1)',
+        'glass-dark': 'rgba(0, 0, 0, 0.1)',
+      },
+      borderColor: {
+        'glass': 'rgba(255, 255, 255, 0.2)',
+        'glass-dark': 'rgba(0, 0, 0, 0.2)',
       },
     },
   },

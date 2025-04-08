@@ -1,29 +1,59 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SoundStreamline - Manage your audio files</title>
+    <title>SoundStreamline - Group 5</title>
     <meta name="description" content="Upload, manage and share your MP3 files easily with SoundStreamline" />
-    <meta name="author" content="Lovable" />
 
-    <meta property="og:title" content="SoundStreamline - Manage your audio files" />
+    <!-- Favicon -->
+    <link rel="icon" href="/meo.ico" type="image/x-icon" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="SoundStreamline - Group 5" />
     <meta property="og:description" content="Upload, manage and share your MP3 files easily with SoundStreamline" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:image" content="/meo.ico" />
 
+    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@lovable_dev" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta name="twitter:image" content="/meo.ico" />
     
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Glassmorphism CSS -->
+    <link rel="stylesheet" href="/src/styles/glassmorphism.css" />
+
+    <!-- Optional CSS for styling -->
+    <style>
+      #group-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 20px;
+        font-family: 'Inter', sans-serif;
+        font-weight: 500;
+        font-size: 1.2rem;
+      }
+      #group-info img {
+        width: 32px;
+        height: 32px;
+      }
+    </style>
   </head>
 
   <body>
+    <!-- Group info with icon -->
+    <div id="group-info">
+      <img src="/meo.ico" alt="Group Icon" />
+      <span>Group 5</span>
+    </div>
+
     <div id="root"></div>
+
     <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
     <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
     <script type="module" src="/src/main.tsx"></script>

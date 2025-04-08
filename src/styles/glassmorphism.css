@@ -1,0 +1,33 @@
+.glass-card {
+  @apply bg-glass backdrop-blur-glass border border-glass rounded-lg shadow-lg;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.glass-card-dark {
+  @apply bg-glass-dark backdrop-blur-glass border border-glass-dark rounded-lg shadow-lg;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.glass-button {
+  @apply bg-glass backdrop-blur-glass border border-glass rounded-lg px-4 py-2 transition-all duration-200;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.glass-button:hover {
+  @apply bg-opacity-20 border-opacity-30;
+}
+
+.glass-input {
+  @apply bg-glass backdrop-blur-glass border border-glass rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.glass-nav {
+  @apply bg-glass backdrop-blur-glass border-b border-glass;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+} 

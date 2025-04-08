@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,104 +10,88 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Track } from "@/components/audio/audio-player-provider";
-import { ListMinus, Save } from "lucide-react";
+import { ListMinus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { playlistService } from "@/services/playlistService";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 
 interface EditPlaylistDialogProps {
   isOpen: boolean;
-  onClose: () => void;
-  playlistId: string;
-  playlistName: string;
-  playlistDescription?: string;
-  tracks: Track[];
-  onTracksUpdated: () => void;
-  onPlaylistUpdated: () => void;
+  onOpenChange: (open: boolean) => void;
+  playlist: {
+    id: string;
+    name: string;
+    description?: string;
+    tracks?: Track[];
+  };
+  onSuccess?: () => void;
 }
 
 export function EditPlaylistDialog({
   isOpen,
-  onClose,
-  playlistId,
-  playlistName,
-  playlistDescription = "",
-  tracks,
-  onTracksUpdated,
-  onPlaylistUpdated
+  onOpenChange,
+  playlist,
+  onSuccess
 }: EditPlaylistDialogProps) {
-  const { toast } = useToast();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [loading, setLoading] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [name, setName] = useState(playlistName);
-  const [description, setDescription] = useState(playlistDescription);
+
+  useEffect(() => {
+    if (playlist) {
+      setName(playlist.name || "");
+      setDescription(playlist.description || "");
+    }
+  }, [playlist]);
 
   const handleRemoveTrack = async (trackId: string) => {
     try {
       setIsRemoving(true);
-      const success = await playlistService.removeSongFromPlaylist(playlistId, trackId);
-      if (success) {
-        toast({
-          title: "Đã xóa bài hát",
-          description: "Bài hát đã được xóa khỏi playlist",
-        });
-        onTracksUpdated();
-      }
+      await playlistService.removeSongFromPlaylist(playlist.id, trackId);
+      toast.success("Đã xóa bài hát khỏi playlist");
+      onSuccess?.();
     } catch (error) {
-      toast({
-        title: "Lỗi",
-        description: "Không thể xóa bài hát khỏi playlist",
-        variant: "destructive",
-      });
+      console.error("Error removing track:", error);
+      toast.error("Không thể xóa bài hát khỏi playlist");
     } finally {
       setIsRemoving(false);
     }
   };
 
-  const handleSavePlaylist = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!name.trim()) {
-      toast({
-        title: "Lỗi",
-        description: "Tên playlist không được để trống",
-        variant: "destructive",
-      });
+      toast.error("Vui lòng nhập tên playlist");
       return;
     }
 
     try {
-      setIsSaving(true);
-      const success = await playlistService.updatePlaylist(playlistId, {
+      setLoading(true);
+      await playlistService.updatePlaylist(playlist.id, {
         name: name.trim(),
-        description: description.trim()
+        description: description.trim() || null
       });
-
-      if (success) {
-        toast({
-          title: "Đã lưu thay đổi",
-          description: "Thông tin playlist đã được cập nhật",
-        });
-        onPlaylistUpdated();
-        onClose();
-      }
+      toast.success("Đã cập nhật playlist");
+      onSuccess?.();
+      onOpenChange(false);
     } catch (error) {
-      toast({
-        title: "Lỗi",
-        description: "Không thể cập nhật thông tin playlist",
-        variant: "destructive",
-      });
+      console.error("Error updating playlist:", error);
+      toast.error("Không thể cập nhật playlist. Vui lòng thử lại sau.");
     } finally {
-      setIsSaving(false);
+      setLoading(false);
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Chỉnh sửa Playlist</DialogTitle>
+          <DialogTitle>Chỉnh sửa playlist</DialogTitle>
           <DialogDescription>
             Quản lý thông tin và bài hát trong playlist của bạn
           </DialogDescription>
@@ -120,7 +104,7 @@ export function EditPlaylistDialog({
           </TabsList>
 
           <TabsContent value="info" className="space-y-4 mt-4">
-            <div className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Tên playlist</Label>
                 <Input
@@ -128,40 +112,69 @@ export function EditPlaylistDialog({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Nhập tên playlist"
+                  disabled={loading}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Mô tả</Label>
+                <Label htmlFor="description">Mô tả (tùy chọn)</Label>
                 <Textarea
                   id="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Nhập mô tả cho playlist (không bắt buộc)"
-                  rows={4}
+                  placeholder="Thêm mô tả cho playlist của bạn"
+                  disabled={loading}
                 />
               </div>
-            </div>
+              <div className="flex justify-end space-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={loading}
+                >
+                  Hủy
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Đang lưu..." : "Lưu thay đổi"}
+                </Button>
+              </div>
+            </form>
           </TabsContent>
 
           <TabsContent value="songs" className="mt-4">
             <ScrollArea className="h-[400px] pr-4">
               <div className="space-y-4">
-                {tracks.length === 0 ? (
+                {playlist.tracks?.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     Playlist này chưa có bài hát nào
                   </div>
                 ) : (
-                  tracks.map((track) => (
+                  playlist.tracks?.map((track) => (
                     <div
                       key={track.id}
                       className="flex items-center justify-between p-2 rounded-lg hover:bg-accent/50"
                     >
                       <div className="flex items-center space-x-3">
-                        <img
-                          src={track.cover || "/placeholder.svg"}
-                          alt={track.title}
-                          className="h-12 w-12 rounded object-cover"
-                        />
+                        <div className="relative h-12 w-12 rounded overflow-hidden bg-accent/50">
+                          {track.cover ? (
+                            <img
+                              src={track.cover}
+                              alt={track.title}
+                              className="h-full w-full object-cover"
+                              onError={(e) => {
+                                console.error('Error loading cover image:', track.cover);
+                                const target = e.target as HTMLImageElement;
+                                target.src = "/placeholder.svg";
+                              }}
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-accent/50">
+                              <span className="text-2xl font-bold text-accent-foreground/50">
+                                {track.title[0].toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                         <div>
                           <p className="font-medium">{track.title}</p>
                           <p className="text-sm text-muted-foreground">
@@ -185,16 +198,6 @@ export function EditPlaylistDialog({
             </ScrollArea>
           </TabsContent>
         </Tabs>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Hủy
-          </Button>
-          <Button onClick={handleSavePlaylist} disabled={isSaving}>
-            <Save className="mr-2 h-4 w-4" />
-            {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

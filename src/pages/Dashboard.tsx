@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Track } from "@/components/audio/audio-player-provider";
 import { useTracksQuery } from "@/hooks/useTracks";
 import AudioCard from "@/components/audio/audio-card";
@@ -7,18 +7,66 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Grid, ListMusic } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { trackService } from "@/services/trackService";
+import { useSearchParams } from "react-router-dom";
 
 export default function Dashboard() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const { user } = useAuth();
   const { toast } = useToast();
+  const [tracks, setTracks] = useState<Track[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchParams] = useSearchParams();
 
   // Use React Query to manage data
-  const { data: tracks = [], isLoading, error } = useTracksQuery({
+  const { data: tracksQuery = [], isLoading, error } = useTracksQuery({
     sortBy: 'created_at',
     sortOrder: 'desc'
   });
+
+  useEffect(() => {
+    const loadTracks = async () => {
+      try {
+        setLoading(true);
+        const letter = searchParams.get('letter');
+        let data;
+        
+        if (letter) {
+          data = await trackService.searchByLetter(letter);
+        } else {
+          // Nếu không có letter param, lấy tất cả bài hát
+          data = await trackService.getAllTracks();
+        }
+        
+        setTracks(data);
+      } catch (error) {
+        console.error("Error loading tracks:", error);
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải danh sách bài hát. Vui lòng thử lại sau.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTracks();
+  }, [searchParams]);
+
+  // Lắng nghe sự kiện tìm kiếm
+  useEffect(() => {
+    const handleLetterSearch = (event: CustomEvent<{ letter: string; songs: Track[]; playlists: any[] }>) => {
+      setTracks(event.detail.songs);
+    };
+
+    window.addEventListener('letterSearch', handleLetterSearch as EventListener);
+
+    return () => {
+      window.removeEventListener('letterSearch', handleLetterSearch as EventListener);
+    };
+  }, []);
 
   if (isLoading) {
     return (

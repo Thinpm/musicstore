@@ -1,7 +1,18 @@
 import { supabase } from "@/lib/supabase";
 import { apiService } from "./api";
 import { Track } from "@/components/audio/audio-player-provider";
-import { Tables } from "@/types/supabase";
+
+interface SongData {
+  id: string;
+  title: string;
+  artist: string | null;
+  duration: number | null;
+  url: string;
+  cover_url: string | null;
+  user_id: string;
+  created_at?: string;
+  updated_at?: string;
+}
 
 export interface TrackQuery {
   startsWith?: string;
@@ -12,14 +23,14 @@ export interface TrackQuery {
 }
 
 // Helper to transform Supabase song data to our Track format
-const transformTrackData = (songData: Tables<'songs'>): Track => {
+const transformTrackData = (songData: SongData): Track => {
   return {
     id: songData.id,
     title: songData.title,
     artist: songData.artist || "Unknown Artist",
     duration: songData.duration || 0,
     url: songData.url,
-    cover: songData.cover_url || "/placeholder.svg",
+    cover: songData.cover_url && songData.cover_url.trim() ? songData.cover_url : "/placeholder.svg",
   };
 };
 
@@ -156,9 +167,8 @@ export const trackService = {
 
       if (signedError) throw new Error(signedError.message);
 
-      // Remove any existing query parameters and create clean URL
-      const url = new URL(signedData.signedUrl);
-      const cleanUrl = `${url.origin}${url.pathname}?token=${url.searchParams.get('token')}`;
+      // Keep the full signed URL for streaming
+      const cleanUrl = signedData.signedUrl;
 
       // Handle cover image if provided
       let coverUrl = metadata.cover;
@@ -167,6 +177,13 @@ export const trackService = {
         const coverFileName = `${userId}/${Date.now()}_cover.jpg`;
         const coverPath = coverFileName;
         
+        console.log('Uploading cover image:', {
+          originalName: coverImage.name,
+          coverPath,
+          fileSize: coverImage.size,
+          fileType: coverImage.type
+        });
+
         const { data: coverData, error: coverError } = await supabase
           .storage
           .from('covers')
@@ -179,23 +196,27 @@ export const trackService = {
         if (coverError) {
           console.error('Error uploading cover:', coverError);
         } else {
-          // Get signed URL for cover
-          const { data: coverUrlData, error: coverUrlError } = await supabase
+          console.log('Cover image uploaded successfully:', coverData);
+          
+          // Get signed URL for cover that's valid for 1 year
+          const { data: coverSignedData, error: coverSignedError } = await supabase
             .storage
             .from('covers')
-            .createSignedUrl(coverPath, 31536000); // URL valid for 1 year
+            .createSignedUrl(coverPath, 31536000);
             
-          if (coverUrlError) {
-            console.error('Error getting cover URL:', coverUrlError);
-          } else {
-            // Remove any existing query parameters and create clean URL
-            const url = new URL(coverUrlData.signedUrl);
-            coverUrl = `${url.origin}${url.pathname}?token=${url.searchParams.get('token')}`;
+          if (coverSignedError) {
+            console.error('Error getting signed URL for cover:', coverSignedError);
+          } else if (coverSignedData) {
+            // Clean up the signed URL similar to audio URL
+            const urlObj = new URL(coverSignedData.signedUrl);
+            const cleanCoverUrl = `${urlObj.origin}${urlObj.pathname}?token=${urlObj.searchParams.get('token')}`;
+            coverUrl = cleanCoverUrl;
+            console.log('Generated clean cover URL:', coverUrl);
           }
         }
       }
 
-      console.log('Generated URLs:', {
+      console.log('Final URLs:', {
         audioUrl: cleanUrl,
         coverUrl: coverUrl
       });
@@ -203,13 +224,22 @@ export const trackService = {
       // Get audio duration - attempt to get it client-side
       let duration = 0;
       try {
-        const audio = new Audio(cleanUrl);
-        await new Promise((resolve) => {
+        const audio = new Audio();
+        await new Promise((resolve, reject) => {
           audio.addEventListener('loadedmetadata', () => {
-            // Làm tròn duration thành số nguyên
-            duration = Math.round(audio.duration);
-            resolve(null);
+            if (audio.duration && !isNaN(audio.duration)) {
+              duration = Math.round(audio.duration);
+              resolve(null);
+            } else {
+              reject(new Error("Invalid duration"));
+            }
           });
+
+          audio.addEventListener('error', () => {
+            reject(new Error("Error loading audio"));
+          });
+
+          audio.src = cleanUrl;
         });
       } catch (error) {
         console.error('Error getting duration:', error);
@@ -217,30 +247,23 @@ export const trackService = {
         duration = 0;
       }
 
-      // Insert record into songs table
-      const { data: songData, error: insertError } = await supabase
+      // Create song record in database
+      const { data: songData, error: dbError } = await supabase
         .from('songs')
-        .insert([
-          {
-            title: metadata.title,
-            artist: metadata.artist,
-            duration: duration,
-            url: cleanUrl,
-            cover_url: coverUrl,
-            user_id: userId,
-            is_public: true
-          }
-        ])
+        .insert([{
+          title: metadata.title,
+          artist: metadata.artist,
+          url: cleanUrl,
+          cover_url: coverUrl || null,
+          user_id: userId,
+          duration: duration || 0 // Đảm bảo duration không null
+        }])
         .select()
         .single();
 
-      if (insertError) {
-        console.error('Error inserting song record:', insertError);
-        throw new Error(insertError.message);
-      }
+      if (dbError) throw new Error(dbError.message);
 
-      console.log('Song record created:', songData);
-
+      console.log('Created song record:', songData);
       return transformTrackData(songData);
     } catch (error) {
       console.error("Error uploading track:", error);
@@ -253,53 +276,86 @@ export const trackService = {
    */
   deleteTrack: async (id: string): Promise<boolean> => {
     try {
-      // First, get the track to find the storage path
-      const { data: track, error: getError } = await supabase
-        .from('songs')
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      if (getError) throw new Error(getError.message);
-      
-      // Delete from the songs table
-      const { error: deleteError } = await supabase
+      // First delete all references in playlist_songs
+      const { error: playlistError } = await supabase
+        .from('playlist_songs')
+        .delete()
+        .eq('song_id', id);
+
+      if (playlistError) throw playlistError;
+
+      // Then delete the song itself
+      const { error: songError } = await supabase
         .from('songs')
         .delete()
         .eq('id', id);
       
-      if (deleteError) throw new Error(deleteError.message);
-      
-      // Extract the file path from the URL and delete from storage
-      // This assumes the URL has a pattern we can parse to get the storage path
-      // This is a simplified approach and may need adjustment based on your URL structure
-      try {
-        const url = new URL(track.url);
-        const pathMatch = url.pathname.match(/\/songs\/(.+)$/);
-        
-        if (pathMatch && pathMatch[1]) {
-          const storagePath = decodeURIComponent(pathMatch[1]);
-          
-          // Delete from storage
-          const { error: storageError } = await supabase
-            .storage
-            .from('songs')
-            .remove([storagePath]);
-          
-          if (storageError) {
-            console.error("Error removing file from storage:", storageError);
-            // We continue even if storage deletion fails - the DB record is gone
-          }
-        }
-      } catch (storageError) {
-        console.error("Error parsing URL or deleting from storage:", storageError);
-        // We continue even if storage deletion fails - the DB record is gone
-      }
-      
+      if (songError) throw songError;
       return true;
     } catch (error) {
       console.error(`Error deleting track ${id}:`, error);
       return false;
+    }
+  },
+
+  /**
+   * Lọc bài hát theo chữ cái đầu tiên
+   */
+  filterSongsByLetter: async (letter: string) => {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) throw new Error("Bạn cần đăng nhập để thực hiện thao tác này");
+
+      const { data: songs, error } = await supabase
+        .from("songs")
+        .select("*")
+        .eq("user_id", session.session.user.id)
+        .ilike("title", `${letter}%`);
+
+      if (error) throw error;
+
+      return songs.map((song) => ({
+        id: song.id,
+        title: song.title,
+        artist: song.artist,
+        duration: song.duration,
+        url: song.url,
+        cover: song.cover_url,
+      }));
+    } catch (error) {
+      console.error("Error filtering songs by letter:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Tìm kiếm bài hát theo chữ cái
+   */
+  searchByLetter: async (letter: string) => {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) throw new Error("Bạn cần đăng nhập để thực hiện thao tác này");
+
+      const { data: songs, error } = await supabase
+        .from("songs")
+        .select("*")
+        .eq("user_id", session.session.user.id)
+        .or(`title.ilike.${letter}%, artist.ilike.${letter}%`)
+        .order('title', { ascending: true });
+
+      if (error) throw error;
+
+      return songs.map((song) => ({
+        id: song.id,
+        title: song.title,
+        artist: song.artist,
+        duration: song.duration,
+        url: song.url,
+        cover: song.cover_url,
+      }));
+    } catch (error) {
+      console.error("Error searching songs by letter:", error);
+      throw error;
     }
   }
 };

@@ -145,10 +145,10 @@ const FullScreenPlayer = ({ isOpen, onClose }: FullScreenPlayerProps) => {
       <Button 
         variant="ghost" 
         size="icon" 
-        className="absolute top-6 right-6 z-50"
+        className="absolute top-12 right-6 z-[100] h-12 w-12 rounded-full bg-black/20 hover:bg-black/40 transition-colors"
         onClick={onClose}
       >
-        <X className="h-6 w-6" />
+        <X className="h-6 w-6 text-white" />
       </Button>
       
       <div className="w-full max-w-3xl mx-auto flex flex-col items-center relative z-10">

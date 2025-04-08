@@ -16,6 +16,7 @@ import {
 
 export default function Playlists() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [searchResults, setSearchResults] = useState<Playlist[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
@@ -23,11 +24,25 @@ export default function Playlists() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Lắng nghe sự kiện tìm kiếm theo chữ cái
+  useEffect(() => {
+    const handlePlaylistSearch = (event: CustomEvent) => {
+      const { playlists: searchedPlaylists } = event.detail;
+      setSearchResults(searchedPlaylists);
+    };
+
+    window.addEventListener('playlistSearch', handlePlaylistSearch as EventListener);
+    return () => {
+      window.removeEventListener('playlistSearch', handlePlaylistSearch as EventListener);
+    };
+  }, []);
+
   const loadPlaylists = async () => {
     setIsLoading(true);
     try {
       const data = await playlistService.getPlaylists();
       setPlaylists(data);
+      setSearchResults([]); // Reset search results when loading all playlists
     } catch (error) {
       toast({
         title: "Error",
@@ -69,12 +84,16 @@ export default function Playlists() {
     setEditingPlaylist(playlist);
   };
 
-  // Filter playlists based on search query
-  const filteredPlaylists = playlists.filter(
-    (playlist) =>
-      playlist.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (playlist.description?.toLowerCase() || "").includes(searchQuery.toLowerCase())
-  );
+  // Filter playlists based on search query and search results
+  const filteredPlaylists = searchQuery
+    ? (searchResults.length > 0 ? searchResults : playlists).filter(
+        (playlist) =>
+          playlist.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (playlist.description?.toLowerCase() || "").includes(searchQuery.toLowerCase())
+      )
+    : searchResults.length > 0
+    ? [...searchResults, ...playlists.filter(p => !searchResults.some(s => s.id === p.id))]
+    : playlists;
 
   return (
     <div className="container py-8">
@@ -220,13 +239,14 @@ export default function Playlists() {
       {editingPlaylist && (
         <EditPlaylistDialog
           isOpen={true}
-          onClose={() => setEditingPlaylist(null)}
-          playlistId={editingPlaylist.id}
-          playlistName={editingPlaylist.name}
-          playlistDescription={editingPlaylist.description}
-          tracks={editingPlaylist.songs}
-          onTracksUpdated={loadPlaylists}
-          onPlaylistUpdated={loadPlaylists}
+          onOpenChange={() => setEditingPlaylist(null)}
+          playlist={{
+            id: editingPlaylist.id,
+            name: editingPlaylist.name,
+            description: editingPlaylist.description,
+            tracks: editingPlaylist.songs
+          }}
+          onSuccess={loadPlaylists}
         />
       )}
     </div>

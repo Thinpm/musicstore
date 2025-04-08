@@ -1,4 +1,7 @@
-import { supabase } from "@/lib/supabase";
+import { shareDAO } from '@/dao/shareDAO';
+import { playlistDAO } from '@/dao/playlistDAO';
+import { trackDAO } from '@/dao/trackDAO';
+import { supabase } from '@/dao/supabaseClient';
 import { Track } from "@/components/audio/audio-player-provider";
 
 function generateToken(): string {
@@ -30,60 +33,69 @@ export interface SharedFile {
   isActive: boolean;
 }
 
+interface SharedPlaylistData {
+  id: string;
+  name: string;
+  description: string | null;
+  playlist_songs: Array<{
+    songs: {
+      id: string;
+      title: string;
+      artist: string | null;
+      duration: number | null;
+      url: string;
+      cover_url: string | null;
+    }
+  }>;
+}
+
+interface ShareData {
+  id: string;
+  token: string;
+  permissions: string;
+  expires_at: string | null;
+  is_active: boolean;
+  playlist: SharedPlaylistData;
+}
+
 export const shareService = {
   /**
    * Tạo link chia sẻ cho một bài hát hoặc playlist
    */
-  createShareLink: async (
-    id: string,
-    type: "song" | "playlist",
-    options: ShareOptions = {}
-  ): Promise<SharedFile> => {
+  async createShareLink(id: string, type: "song" | "playlist", options: ShareOptions = {}) {
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) throw new Error("User not authenticated");
+      // Kiểm tra tồn tại
+      const exists = type === 'playlist' 
+        ? await playlistDAO.getPlaylistById(id)
+        : await trackDAO.getTrackById(id);
+
+      if (!exists) {
+        throw new Error(`${type === "playlist" ? "Playlist" : "Bài hát"} không tồn tại`);
+      }
+
+      // Lấy user hiện tại
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("Bạn cần đăng nhập để tạo link chia sẻ");
+      }
 
       // Tạo token ngẫu nhiên
       const token = generateToken();
 
-      // Tính thời gian hết hạn
-      const expiresAt = options.expiresIn
-        ? new Date(Date.now() + options.expiresIn * 1000).toISOString()
-        : null;
-
-      // Tạo bản ghi chia sẻ mới
-      const { data, error } = await supabase
-        .from('shared_files')
-        .insert([
-          {
-            song_id: type === "song" ? id : null,
-            playlist_id: type === "playlist" ? id : null,
-            shared_by: session.session.user.id,
-            shared_with_email: options.email || null,
-            permissions: options.permissions || "read",
-            token,
-            expires_at: expiresAt,
-            is_active: true
-          }
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-      if (!data) throw new Error("No data returned from insert");
-
-      return {
-        id: data.id,
-        songId: data.song_id,
-        playlistId: data.playlist_id,
-        sharedBy: data.shared_by,
-        sharedWithEmail: data.shared_with_email,
-        permissions: data.permissions,
-        token: data.token,
-        createdAt: data.created_at,
-        expiresAt: data.expires_at,
-        isActive: data.is_active
+      // Tạo share data
+      const shareData = {
+        song_id: type === "song" ? id : null,
+        playlist_id: type === "playlist" ? id : null,
+        token,
+        permissions: options.permissions || "read",
+        expires_at: options.expiresIn ? new Date(Date.now() + options.expiresIn * 1000).toISOString() : null,
+        created_by: user.id,
+        shared_by: user.id
       };
+
+      // Tạo record trong shared_files
+      const share = await shareDAO.createShare(shareData);
+      return share;
     } catch (error) {
       console.error("Error creating share link:", error);
       throw error;
@@ -158,27 +170,36 @@ export const shareService = {
       const { data: shareData, error: shareError } = await supabase
         .from('shared_files')
         .select(`
-          *,
-          playlists:playlist_id (
+          id,
+          token,
+          permissions,
+          expires_at,
+          is_active,
+          playlist:playlists!playlist_id (
             id,
             name,
             description,
-            user_id,
-            songs (
-              id,
-              title,
-              artist,
-              duration,
-              url,
-              cover_url
+            playlist_songs (
+              songs (
+                id,
+                title,
+                artist,
+                duration,
+                url,
+                cover_url
+              )
             )
           )
         `)
         .eq('token', token)
         .eq('is_active', true)
-        .maybeSingle();
+        .single();
 
-      if (shareError) throw shareError;
+      if (shareError) {
+        console.error("Error fetching share data:", shareError);
+        throw new Error("Không thể truy cập playlist");
+      }
+      
       if (!shareData) throw new Error("Không tìm thấy thông tin chia sẻ");
 
       // Kiểm tra thời hạn
@@ -190,23 +211,28 @@ export const shareService = {
         throw new Error("Link chia sẻ đã hết hạn");
       }
 
-      if (!shareData.playlists) {
+      // Chuyển đổi dữ liệu từ Supabase sang định dạng mong muốn
+      const rawPlaylist = shareData.playlist as unknown as SharedPlaylistData[];
+      if (!rawPlaylist || !rawPlaylist[0]) {
         throw new Error("Không tìm thấy thông tin playlist");
       }
 
+      const playlist = rawPlaylist[0];
+      const songs = playlist.playlist_songs.map(ps => ({
+        id: ps.songs.id,
+        title: ps.songs.title,
+        artist: ps.songs.artist || "Unknown Artist",
+        duration: ps.songs.duration || 0,
+        url: ps.songs.url,
+        cover: ps.songs.cover_url,
+        canDownload: shareData.permissions === "download"
+      }));
+
       return {
-        id: shareData.playlists.id,
-        name: shareData.playlists.name,
-        description: shareData.playlists.description,
-        songs: shareData.playlists.songs.map((song: any) => ({
-          id: song.id,
-          title: song.title,
-          artist: song.artist || "Unknown Artist",
-          duration: song.duration || 0,
-          url: song.url,
-          cover: song.cover_url,
-          canDownload: shareData.permissions === "download"
-        }))
+        id: playlist.id,
+        name: playlist.name,
+        description: playlist.description,
+        songs: songs
       };
     } catch (error) {
       console.error("Error getting shared playlist:", error);
@@ -266,6 +292,51 @@ export const shareService = {
     } catch (error) {
       console.error("Error getting user shares:", error);
       return [];
+    }
+  },
+
+  /**
+   * Tạo URL nhất quán cho cả song và playlist
+   */
+  async createShareUrl(id: string, type: "song" | "playlist", options: ShareOptions = {}) {
+    const share = await this.createShareLink(id, type, options);
+    if (!share) {
+      throw new Error("Không thể tạo link chia sẻ");
+    }
+
+    return `${window.location.origin}/share/${type === "playlist" ? "playlist" : "song"}/${share.token}`;
+  },
+
+  async getSharedContent(token: string) {
+    try {
+      const share = await shareDAO.getShareByToken(token);
+      if (!share) {
+        throw new Error("Link chia sẻ không tồn tại hoặc đã hết hạn");
+      }
+
+      // Kiểm tra hết hạn
+      if (share.expires_at && new Date(share.expires_at) < new Date()) {
+        throw new Error("Link chia sẻ đã hết hạn");
+      }
+
+      if (share.playlist_id) {
+        const data = await shareDAO.getSharedPlaylist(token);
+        if (!data?.playlist) {
+          throw new Error("Không tìm thấy playlist");
+        }
+        return data;
+      } else if (share.song_id) {
+        const data = await shareDAO.getSharedSong(token);
+        if (!data?.song) {
+          throw new Error("Không tìm thấy bài hát");
+        }
+        return data;
+      }
+
+      throw new Error("Không tìm thấy nội dung được chia sẻ");
+    } catch (error) {
+      console.error("Error getting shared content:", error);
+      throw error;
     }
   }
 }; 

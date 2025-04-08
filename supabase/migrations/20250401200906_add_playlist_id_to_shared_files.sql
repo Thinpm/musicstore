@@ -20,3 +20,4 @@ ADD CONSTRAINT fk_shared_files_playlist
 FOREIGN KEY (playlist_id)
 REFERENCES playlists(id)
 ON DELETE CASCADE;
+

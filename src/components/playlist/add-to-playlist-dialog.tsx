@@ -14,6 +14,7 @@ import { ListMusic } from "lucide-react";
 import { playlistService, Playlist } from "@/services/playlistService";
 import { Track } from "@/components/audio/audio-player-provider";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/lib/supabase";
 
 interface AddToPlaylistDialogProps {
   track: Track;
@@ -24,7 +25,33 @@ export function AddToPlaylistDialog({ track, onSongAdded }: AddToPlaylistDialogP
   const [open, setOpen] = useState(false);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [canAddToPlaylist, setCanAddToPlaylist] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    checkOwnership();
+  }, [track.id]);
+
+  const checkOwnership = async () => {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        setCanAddToPlaylist(false);
+        return;
+      }
+
+      const { data: song } = await supabase
+        .from('songs')
+        .select('user_id')
+        .eq('id', track.id)
+        .single();
+
+      setCanAddToPlaylist(song?.user_id === session.session.user.id);
+    } catch (error) {
+      console.error('Error checking song ownership:', error);
+      setCanAddToPlaylist(false);
+    }
+  };
 
   useEffect(() => {
     if (open) {
@@ -64,11 +91,13 @@ export function AddToPlaylistDialog({ track, onSongAdded }: AddToPlaylistDialogP
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to add song to playlist. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to add song to playlist. Please try again.",
         variant: "destructive",
       });
     }
   };
+
+  if (!canAddToPlaylist) return null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

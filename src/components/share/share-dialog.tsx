@@ -34,19 +34,10 @@ export const ShareDialog = ({ isOpen, onClose, title, type, id }: ShareDialogPro
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleCreateShare = async () => {
-    if (type !== "song") {
-      toast({
-        title: "Không hỗ trợ",
-        description: "Tính năng chia sẻ playlist chưa được hỗ trợ.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (!id) {
       toast({
         title: "Lỗi",
-        description: "ID bài hát không hợp lệ.",
+        description: `ID ${type === "song" ? "bài hát" : "playlist"} không hợp lệ.`,
         variant: "destructive",
       });
       return;
@@ -69,11 +60,11 @@ export const ShareDialog = ({ isOpen, onClose, title, type, id }: ShareDialogPro
         throw new Error("Không có kết nối internet. Vui lòng kiểm tra lại kết nối của bạn.");
       }
 
-      const share = await shareService.createShareLink(id, options);
+      const share = await shareService.createShareLink(id, type, options);
       console.log("Link chia sẻ đã được tạo:", share);
 
       if (share) {
-        const url = `${window.location.origin}/share/${share.token}`;
+        const url = `${window.location.origin}/share/${type === "playlist" ? "playlist" : "song"}/${share.token}`;
         setShareUrl(url);
         toast({
           title: "Đã tạo link chia sẻ",
@@ -84,9 +75,23 @@ export const ShareDialog = ({ isOpen, onClose, title, type, id }: ShareDialogPro
       }
     } catch (error) {
       console.error("Lỗi khi tạo link chia sẻ:", error);
+      let errorMessage = "Không thể tạo link chia sẻ. Vui lòng thử lại sau.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes("not found")) {
+          errorMessage = `${type === "playlist" ? "Playlist" : "Bài hát"} không tồn tại`;
+        } else if (error.message.includes("permission")) {
+          errorMessage = "Bạn không có quyền chia sẻ nội dung này";
+        } else if (error.message.includes("network")) {
+          errorMessage = "Lỗi kết nối mạng. Vui lòng kiểm tra lại kết nối internet";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "Lỗi",
-        description: error instanceof Error ? error.message : "Không thể tạo link chia sẻ. Vui lòng thử lại sau.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -211,34 +216,46 @@ export const ShareDialog = ({ isOpen, onClose, title, type, id }: ShareDialogPro
             </div>
 
             {shareUrl ? (
-              <div className="space-y-2">
-                <Label>Share link</Label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    ref={inputRef}
-                    value={shareUrl}
-                    readOnly
-                    className="font-mono text-sm"
-                  />
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className={cn("shrink-0", copied && "text-green-500")}
-                    onClick={handleCopy}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  {navigator.share && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Share link</Label>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      ref={inputRef}
+                      value={shareUrl}
+                      readOnly
+                      className="font-mono text-sm"
+                    />
                     <Button
                       variant="secondary"
                       size="icon"
-                      className="shrink-0"
-                      onClick={handleShare}
+                      className={cn("shrink-0", copied && "text-green-500")}
+                      onClick={handleCopy}
                     >
-                      <ShareIcon className="h-4 w-4" />
+                      <Copy className="h-4 w-4" />
                     </Button>
-                  )}
+                    {navigator.share && (
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="shrink-0"
+                        onClick={handleShare}
+                      >
+                        <ShareIcon className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
+                <Button
+                  onClick={() => {
+                    setShareUrl("");
+                    handleCreateShare();
+                  }}
+                  disabled={loading}
+                  className="w-full"
+                >
+                  {loading ? "Đang tạo..." : "Tạo link mới"}
+                </Button>
               </div>
             ) : (
               <Button
@@ -246,7 +263,7 @@ export const ShareDialog = ({ isOpen, onClose, title, type, id }: ShareDialogPro
                 disabled={loading}
                 className="w-full"
               >
-                {loading ? "Creating..." : "Create share link"}
+                {loading ? "Đang tạo..." : "Tạo link chia sẻ"}
               </Button>
             )}
           </div>

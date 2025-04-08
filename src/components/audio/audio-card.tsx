@@ -16,6 +16,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabase";
 import { playlistService } from "@/services/playlistService";
+import { trackService } from "@/services/trackService";
 
 export const formatDuration = (seconds: number): string => {
   const minutes = Math.floor(seconds / 60);
@@ -91,20 +92,17 @@ const AudioCard = ({
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      const { error } = await supabase
-        .from('songs')
-        .delete()
-        .eq('id', track.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Xóa bài hát thành công",
-        description: `Đã xóa "${track.title}"`,
-      });
-
-      // Reload the page to refresh the song list
-      window.location.reload();
+      const success = await trackService.deleteTrack(track.id);
+      if (success) {
+        toast({
+          title: "Xóa bài hát thành công",
+          description: `Đã xóa "${track.title}"`,
+        });
+        // Reload the page to refresh the song list
+        window.location.reload();
+      } else {
+        throw new Error("Không thể xóa bài hát");
+      }
     } catch (error) {
       console.error('Error deleting song:', error);
       toast({
@@ -160,7 +158,11 @@ const AudioCard = ({
             src={track.cover || "/placeholder.svg"}
             alt={track.title}
             className="h-full w-full object-cover"
-            crossOrigin="anonymous"
+            onError={(e) => {
+              console.error('Error loading cover image:', track.cover);
+              const target = e.target as HTMLImageElement;
+              target.src = "/placeholder.svg";
+            }}
           />
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
             <Button

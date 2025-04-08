@@ -83,15 +83,26 @@ const AudioPlayer = () => {
   // Set the initial duration
   useEffect(() => {
     if (currentTrack) {
-      try {
-        if (currentTrack.duration <= 0) {
-          throw new Error("Thời lượng bài hát không hợp lệ");
-        }
+      // Nếu duration <= 0, thử lấy duration từ audio element
+      if (currentTrack.duration <= 0) {
+        const audio = new Audio(currentTrack.url);
+        audio.addEventListener('loadedmetadata', () => {
+          if (audio.duration && !isNaN(audio.duration)) {
+            setDuration(Math.round(audio.duration));
+            setLoadingState("ready");
+          } else {
+            console.error("Không thể lấy được thời lượng bài hát");
+            setLoadingState("error");
+          }
+        });
+
+        audio.addEventListener('error', (e) => {
+          console.error("Lỗi khi tải metadata:", e);
+          setLoadingState("error"); 
+        });
+      } else {
         setDuration(currentTrack.duration);
         setLoadingState("ready");
-      } catch (error) {
-        console.error("Lỗi khi tải metadata:", error);
-        setLoadingState("error");
       }
     }
   }, [currentTrack]);
@@ -153,7 +164,7 @@ const AudioPlayer = () => {
       )}
       
       <button 
-        className="audio-player-toggle"
+        className="fixed left-4 bottom-16 z-50 flex items-center px-3 py-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background/90 transition-all shadow-lg border"
         onClick={toggleCollapse}
         aria-label={collapsed ? "Expand Player" : "Collapse Player"}
       >
@@ -171,11 +182,20 @@ const AudioPlayer = () => {
       </button>
       
       <div className={cn(
-        "audio-player-container",
-        collapsed && "collapsed",
+        "fixed bottom-0 left-0 right-0 transform transition-transform duration-300",
+        collapsed ? "translate-y-full" : "translate-y-0",
         loadingState === "loading" && "opacity-75"
       )}>
-        <div className="glass-panel p-2 sm:p-4 border-t shadow-md animate-fade-in">
+        <div className="glass-panel p-2 sm:p-4 border-t shadow-md animate-fade-in relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 h-8 w-8 rounded-full hover:bg-accent/10"
+            onClick={toggleCollapse}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
             {/* Mobile mini player controls (only visible on small screens) */}
             <div className="flex items-center justify-between sm:hidden w-full mb-2">
@@ -210,7 +230,7 @@ const AudioPlayer = () => {
             {/* Desktop full player controls */}
             <div className="hidden sm:flex items-center space-x-4 w-1/4">
               <div 
-                className="relative h-12 w-12 overflow-hidden rounded-md bg-muted animate-pulse-subtle cursor-pointer"
+                className="relative h-12 w-12 overflow-hidden rounded-md bg-muted animate-pulse-subtle cursor-pointer group"
                 onClick={openFullScreen}
               >
                 <img
@@ -219,6 +239,9 @@ const AudioPlayer = () => {
                   className="h-full w-full object-cover"
                   crossOrigin="anonymous"
                 />
+                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Maximize2 className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
               </div>
               <div className="hidden sm:block">
                 <h4 
@@ -240,8 +263,7 @@ const AudioPlayer = () => {
                     />
                   </div>
                 </TooltipTrigger>
-                <TooltipContent side="top">
-                  Thêm vào yêu thích
+                <TooltipContent side="top">Thêm vào yêu thích
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -375,7 +397,10 @@ const AudioPlayer = () => {
         </div>
       </div>
       
-      <FullScreenPlayer isOpen={isFullScreen} onClose={closeFullScreen} />
+      <FullScreenPlayer 
+        isOpen={isFullScreen}
+        onClose={closeFullScreen}
+      />
       {currentTrack && (
         <ShareDialog
           isOpen={showShareDialog}
